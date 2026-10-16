@@ -58,7 +58,7 @@ export function OcrWorkbench() {
         onFiles={run}
         busy={busy}
         title="스캔한 PDF나 지문 사진을 끌어다 놓으세요"
-        hint="여러 파일을 한 번에 올릴 수 있어요 · 스캔 문서는 파일당 연필 1자루, 텍스트 문서는 무료"
+        hint="여러 파일을 한 번에 올릴 수 있어요 · 스캔 문서는 파일당 토큰 1개, 텍스트 문서는 무료"
       />
       {items.length > 0 && (
         <ul className="space-y-3">
@@ -71,7 +71,7 @@ export function OcrWorkbench() {
                   {it.status === "error" && <FileWarning className="size-4 text-red-500" />}
                   {it.name}
                   {it.status === "done" && (
-                    <span className="text-xs font-semibold text-muted-foreground">{it.free ? "텍스트 추출 · 무료" : "AI OCR · 연필 1자루"}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{it.free ? "텍스트 추출 · 무료" : "AI OCR · 토큰 1개"}</span>
                   )}
                 </p>
                 {it.status === "done" && (

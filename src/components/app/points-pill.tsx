@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Pencil } from "lucide-react";
+import { Coins } from "lucide-react";
 
 import { cn, formatNumber } from "@/lib/utils";
 
@@ -11,9 +11,9 @@ export function PointsPill({ points, className }: { points: number; className?: 
         "inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-soft px-3 py-1.5 text-sm font-bold text-amber-800 transition hover:border-amber-300",
         className,
       )}
-      title="연필 충전하기"
+      title="토큰 충전하기"
     >
-      <Pencil className="size-3.5" /> 연필 <span className="tabular-nums">{formatNumber(points)}</span>
+      <Coins className="size-3.5" /> 토큰 <span className="tabular-nums">{formatNumber(points)}</span>
     </Link>
   );
 }

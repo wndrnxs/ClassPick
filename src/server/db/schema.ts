@@ -3,8 +3,8 @@
  *
  * users ─┬─< sessions
  *        ├─< materials          (지문 자료 · 분석 보고서 · 모음 시험지 · OCR 문서)
- *        ├─< point_transactions (연필 원장: 적립/차감/환불 이력)
- *        └─< payments           (연필 충전 결제)
+ *        ├─< point_transactions (토큰 원장: 적립/차감/환불 이력)
+ *        └─< payments           (토큰 충전 결제)
  */
 import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";

@@ -38,7 +38,7 @@ export function SignupForm() {
             agreeTerms: agree,
           },
         });
-        toast.success(`가입을 환영합니다! 무료 연필 ${SIGNUP_BONUS_PENCILS}자루를 드렸어요.`);
+        toast.success(`가입을 환영합니다! 무료 토큰 ${SIGNUP_BONUS_PENCILS}개를 드렸어요.`);
         router.push("/app/new");
         router.refresh();
       } catch (err) {
@@ -52,7 +52,7 @@ export function SignupForm() {
       <div>
         <h1 className="text-3xl font-black tracking-tight">무료로 시작하기</h1>
         <p className="mt-2 flex items-center gap-1.5 text-muted-foreground">
-          <Gift className="size-4 text-amber" /> 가입 즉시 무료 체험 연필 {SIGNUP_BONUS_PENCILS}자루를 드려요.
+          <Gift className="size-4 text-amber" /> 가입 즉시 무료 체험 토큰 {SIGNUP_BONUS_PENCILS}개를 드려요.
         </p>
       </div>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>

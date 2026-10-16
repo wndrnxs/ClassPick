@@ -18,7 +18,7 @@
 | ⑤ | **스캔 문서 스마트 OCR** — 스캔 PDF·이미지 → 편집 가능한 HWPX (텍스트 문서는 무료 추출) | `/app/ocr` | HWPX · DOCS |
 | ⑥ | **여러 지문 모음 시험지 제본** — 지문 순서·출제 유형 선택, 연속 번호·정답표 자동 정리 | `/app/exam-builder` | 교사용 / 학생용 |
 
-그 밖에: 랜딩페이지(인터랙티브 미리보기·실제 샘플 다운로드), 생성 샘플 갤러리, 요금제, 이용가이드, 이용약관(저작권법 제25조·제35조의5·제37조 반영 초안), 회원가입/로그인/**가입 없는 체험 계정**, 연필(포인트) 원장과 충전.
+그 밖에: 랜딩페이지(인터랙티브 미리보기·실제 샘플 다운로드), 생성 샘플 갤러리, 요금제, 이용가이드, 이용약관(저작권법 제25조·제35조의5·제37조 반영 초안), 회원가입/로그인/**가입 없는 체험 계정**, 토큰(포인트) 원장과 충전.
 
 ---
 
@@ -106,13 +106,13 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 
 | 테이블 | 설명 |
 |--------|------|
-| `users` | 이메일, 이름, 직군, 소속, 요금제, **연필 잔액**, 체험 계정 여부 |
+| `users` | 이메일, 이름, 직군, 소속, 요금제, **토큰 잔액**, 체험 계정 여부 |
 | `sessions` | 세션 토큰의 SHA-256 해시, 만료 시각 (원본 토큰은 httpOnly 쿠키에만 존재) |
-| `materials` | `kind`(passage·exam_report·exam_set·ocr), 원문, 생성 설정, 생성 결과(JSON), 엔진, 사용 연필 |
-| `point_transactions` | 연필 원장 — 적립·차감·환불을 모두 기록하고 거래 후 잔액을 남김 |
+| `materials` | `kind`(passage·exam_report·exam_set·ocr), 원문, 생성 설정, 생성 결과(JSON), 엔진, 사용 토큰 |
+| `point_transactions` | 토큰 원장 — 적립·차감·환불을 모두 기록하고 거래 후 잔액을 남김 |
 | `payments` | 충전 주문 (mock/toss, pending/paid/failed) |
 
-**연필 흐름:** 생성 요청 → 트랜잭션으로 선차감(잔액 부족 시 402) → AI 생성 → 실패하면 같은 수량 자동 환불. 다운로드는 무료.
+**토큰 흐름:** 생성 요청 → 트랜잭션으로 선차감(잔액 부족 시 402) → AI 생성 → 실패하면 같은 수량 자동 환불. 다운로드는 무료.
 
 ---
 
@@ -121,10 +121,10 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 - `read.md`의 Prompt 3-1(작품 도식화 JSON)·3-2(행간주·문항 출제)를 시스템 프롬프트와 유형별 지시문으로 이식했습니다 (`src/server/ai/prompts.ts`).
 - **구조화 출력**: 자료 유형별 Zod 스키마(`src/lib/schemas.ts`)를 `output_config.format`으로 전달하고 SDK가 응답을 검증합니다. 선택한 유형은 **병렬**로 생성합니다.
 - 기본 모델 `claude-opus-5-5`, adaptive thinking, `effort: high`, 스트리밍 + `finalMessage()`.
-- 정책상 거절에 대비해 **서버 측 대체 모델 재시도**(`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`)를 켜 두었습니다. `stop_reason`이 `refusal`/`max_tokens`이면 사용자에게 안내하고 연필을 환불합니다.
+- 정책상 거절에 대비해 **서버 측 대체 모델 재시도**(`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`)를 켜 두었습니다. `stop_reason`이 `refusal`/`max_tokens`이면 사용자에게 안내하고 토큰을 환불합니다.
 - 시스템 프롬프트와 지문 블록에 `cache_control`을 두어 같은 지문의 반복 생성 비용을 줄입니다.
 - **결정적 후처리**: 초성은 모델이 아닌 서버가 계산(`toChoseong`), 5지선다는 선지 5개·정답 범위·번호 기호를 정규화, 문항 수는 설정값으로 보정.
-- **OCR**: 텍스트 레이어가 있는 문서는 AI 없이 무료 추출, 스캔 PDF·이미지만 Claude 비전으로 전사(연필 1자루).
+- **OCR**: 텍스트 레이어가 있는 문서는 AI 없이 무료 추출, 스캔 PDF·이미지만 Claude 비전으로 전사(토큰 1개).
 
 ## 5. 문서 내보내기
 
@@ -139,7 +139,7 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/auth/signup` · `/login` · `/logout` · `/guest` | 회원가입(연필 30 지급) · 로그인 · 로그아웃 · 체험 계정 |
+| POST | `/api/auth/signup` · `/login` · `/logout` · `/guest` | 회원가입(토큰 30 지급) · 로그인 · 로그아웃 · 체험 계정 |
 | GET | `/api/auth/me` | 현재 사용자 |
 | GET · POST | `/api/materials` | 자료 목록(`?kind=&q=`) · 지문 자료 생성 |
 | GET · DELETE | `/api/materials/:id` | 자료 조회 · 삭제 |
@@ -147,7 +147,7 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 | POST | `/api/extract` | 파일 → 텍스트 (무료, 스캔본은 `needsOcr`) |
 | POST | `/api/ocr` | 스마트 OCR 문서 생성 |
 | POST | `/api/exams/analyze` · `/api/exams/compose` | 분석 보고서 · 모음 시험지 |
-| POST | `/api/billing/checkout` · `/api/billing/confirm` | 연필 충전 · 토스페이먼츠 승인 |
+| POST | `/api/billing/checkout` · `/api/billing/confirm` | 토큰 충전 · 토스페이먼츠 승인 |
 | GET | `/api/samples/:slug/export` | 공개 샘플 다운로드 |
 | GET | `/api/health` | DB·AI 엔진 상태 |
 
@@ -157,7 +157,7 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 
 - **Phase 1 랜딩페이지** ✅ Prompt 1-1·1-2 구조 + `Copy.md` 카피 전량 매핑 (Hero, 문제/해결, 6대 기능 + 샘플 모달, 3단계, 출력 포맷, 법적 안내, 맺음말).
 - **Phase 2 백엔드·AI 파이프라인** ✅ Prompt 3-1·3-2 이식, HWPX custom XML builder, OCR, 분석 보고서, 시험지 제본.
-- **Phase 3 법적 고지·결제** ◑ Prompt 4-1 반영 이용약관 초안(법률 검토 필요), 연필 원장과 테스트 결제 완료. 토스페이먼츠는 서버 승인 API(`confirmTossPayment`)까지 구현되어 있고, 결제창(클라이언트 SDK) 연동이 남아 있습니다.
+- **Phase 3 법적 고지·결제** ◑ Prompt 4-1 반영 이용약관 초안(법률 검토 필요), 토큰 원장과 테스트 결제 완료. 토스페이먼츠는 서버 승인 API(`confirmTossPayment`)까지 구현되어 있고, 결제창(클라이언트 SDK) 연동이 남아 있습니다.
 
 ### 다음 단계 제안
 1. 토스페이먼츠 결제위젯 연동 및 정기 구독 결제
@@ -166,4 +166,4 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 4. 운영 DB 전환(PostgreSQL — Drizzle 스키마 이식), 팀 자료함 공유
 5. 실제 지문으로 출제 품질 평가 세트 구축 후 프롬프트·effort 튜닝
 
-> 요금·연필 단가·요금제 문구는 `src/lib/catalog.ts` 한 곳에서 관리하는 **예시 값**입니다. 실제 정책에 맞게 수정해 주세요.
+> 요금·토큰 단가·요금제 문구는 `src/lib/catalog.ts` 한 곳에서 관리하는 **예시 값**입니다. 실제 정책에 맞게 수정해 주세요.

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Pencil } from "lucide-react";
+import { Coins } from "lucide-react";
 
 import { PencilPackList } from "@/components/app/checkout-buttons";
 import { PageHeader } from "@/components/app/page-header";
@@ -11,7 +11,7 @@ import { requireUser } from "@/server/auth/dal";
 import { env } from "@/server/env";
 import { listTransactions } from "@/server/services/points";
 
-export const metadata: Metadata = { title: "연필 충전" };
+export const metadata: Metadata = { title: "토큰 충전" };
 
 const REASON_LABEL = {
   signup_bonus: "가입 보너스",
@@ -26,13 +26,13 @@ async function Balance() {
   return (
     <div className="flex items-center gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-soft to-white p-6">
       <span className="flex size-14 items-center justify-center rounded-2xl bg-amber text-white shadow-md">
-        <Pencil className="size-7" />
+        <Coins className="size-7" />
       </span>
       <div>
-        <p className="text-sm font-bold text-amber-800">보유 연필</p>
+        <p className="text-sm font-bold text-amber-800">보유 토큰</p>
         <p className="text-4xl font-black tracking-tight tabular-nums">
           {formatNumber(user.points)}
-          <span className="ml-1 text-base font-semibold text-muted-foreground">자루</span>
+          <span className="ml-1 text-base font-semibold text-muted-foreground">개</span>
         </p>
       </div>
     </div>
@@ -75,12 +75,12 @@ async function History() {
 export default function BillingPage() {
   return (
     <div className="space-y-10">
-      <PageHeader eyebrow="Pencils" title="연필 충전 · 사용 내역" description="연필은 자료를 생성할 때 사용됩니다. 다운로드는 횟수 제한 없이 무료예요." />
+      <PageHeader eyebrow="Tokens" title="토큰 충전 · 사용 내역" description="토큰은 자료를 생성할 때 사용됩니다. 다운로드는 횟수 제한 없이 무료예요." />
       <Suspense fallback={<Skeleton className="h-[106px] rounded-2xl" />}>
         <Balance />
       </Suspense>
       <section>
-        <h2 className="mb-4 text-lg font-extrabold">연필 충전</h2>
+        <h2 className="mb-4 text-lg font-extrabold">토큰 충전</h2>
         <PencilPackList provider={env.paymentProvider} />
       </section>
       <PencilCostTable />

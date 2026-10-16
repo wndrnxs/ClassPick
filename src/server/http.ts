@@ -14,13 +14,13 @@ export class HttpError extends Error {
   }
 }
 
-/** 연필 부족 등 결제가 필요한 상황 */
+/** 토큰 부족 등 결제가 필요한 상황 */
 export class InsufficientPointsError extends HttpError {
   constructor(
     public required: number,
     public balance: number,
   ) {
-    super(402, `연필이 부족합니다. (필요 ${required}자루 · 보유 ${balance}자루)`, "insufficient_points");
+    super(402, `토큰이 부족합니다. (필요 ${required}개 · 보유 ${balance}개)`, "insufficient_points");
   }
 }
 

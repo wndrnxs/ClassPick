@@ -195,7 +195,7 @@ export function ExamBuilder({ candidates }: { candidates: MaterialSummaryDTO[] }
             </div>
           </div>
           <Button size="lg" variant="gradient" className="w-full" onClick={submit} disabled={pending || picked.length === 0 || !title.trim()}>
-            <BookCopy /> 시험지 제본하기 (연필 {FEATURE_COSTS.examCompose}자루)
+            <BookCopy /> 시험지 제본하기 (토큰 {FEATURE_COSTS.examCompose}개)
           </Button>
         </div>
       </section>

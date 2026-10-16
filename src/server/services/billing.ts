@@ -18,7 +18,7 @@ function findPack(packId: string) {
 
 /**
  * 결제 시작.
- * - mock(기본): 결제 승인을 시뮬레이션하고 즉시 연필을 적립합니다. (개발·시연용)
+ * - mock(기본): 결제 승인을 시뮬레이션하고 즉시 토큰을 적립합니다. (개발·시연용)
  * - toss: 주문을 pending으로 만들고, 클라이언트가 토스페이먼츠 결제창을 띄운 뒤
  *   successUrl에서 confirmTossPayment()로 서버 승인합니다.
  */

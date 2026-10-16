@@ -116,7 +116,7 @@ async function insertMaterial(values: typeof schema.materials.$inferInsert): Pro
   return toDTO(row);
 }
 
-/** 연필을 먼저 차감하고, 작업이 실패하면 같은 수량을 환불합니다. */
+/** 토큰을 먼저 차감하고, 작업이 실패하면 같은 수량을 환불합니다. */
 async function withPoints<T>(userId: string, cost: number, memo: string, refId: string, work: () => Promise<T>): Promise<T> {
   await debitPoints(userId, cost, memo, refId);
   try {
@@ -173,7 +173,7 @@ export async function createOcrMaterial(userId: string, file: UploadedFile): Pro
   // 텍스트 레이어가 있는 문서(HWPX·DOCX·TXT·텍스트 PDF)는 무료로 변환합니다.
   const local = await extractTextLocally(file);
   if (local) return save({ fileName: file.name, ...local }, "none", 0);
-  // 스캔 PDF·이미지는 AI OCR (연필 차감, 실패 시 환불)
+  // 스캔 PDF·이미지는 AI OCR (토큰 차감, 실패 시 환불)
   const cost = FEATURE_COSTS.ocrPerFile;
   return withPoints(userId, cost, `스마트 OCR (${file.name})`, id, async () => {
     const { engine, text } = await ocrWithAi(file);

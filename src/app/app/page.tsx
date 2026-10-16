@@ -32,7 +32,7 @@ async function Greeting() {
           <p className="text-sm font-semibold text-blue-100">{user.organization || "클래스픽 워크스페이스"}</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{user.name} 선생님, 오늘은 어떤 수업을 준비할까요?</h1>
           <p className="mt-2 text-blue-100">
-            보유 연필 <strong className="text-white">{user.points}자루</strong> — 지문 풀세트(6종)는 연필 {costOf(MATERIAL_TYPE_ORDER)}자루면
+            보유 토큰 <strong className="text-white">{user.points}개</strong> — 지문 풀세트(6종)는 토큰 {costOf(MATERIAL_TYPE_ORDER)}개면
             충분해요.
           </p>
           {engine === "demo" && (

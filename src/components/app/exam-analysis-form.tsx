@@ -43,7 +43,7 @@ export function ExamAnalysisForm({ sampleText }: { sampleText: string }) {
       const res = await api<{ needsOcr: boolean; text?: string }>("/api/extract", { method: "POST", body: fd });
       let text = res.text ?? "";
       if (res.needsOcr) {
-        toast.info("스캔 시험지예요. 스마트 OCR로 변환합니다. (연필 1자루)");
+        toast.info("스캔 시험지예요. 스마트 OCR로 변환합니다. (토큰 1개)");
         const ocr = await api<{ material: { sourceText: string } }>("/api/ocr", { method: "POST", body: fd });
         text = ocr.material.sourceText;
       }
@@ -111,7 +111,7 @@ export function ExamAnalysisForm({ sampleText }: { sampleText: string }) {
             <p className="mt-2 text-right text-xs text-muted-foreground tabular-nums">{examText.length.toLocaleString()} / 60,000자</p>
           </TabsContent>
           <TabsContent value="upload" className="mt-3">
-            <FileDropzone onFiles={(f) => upload(f[0])} busy={uploading} hint="시험지 PDF · 스캔 이미지 · HWPX · DOCX (스캔본은 OCR 연필 1자루)" />
+            <FileDropzone onFiles={(f) => upload(f[0])} busy={uploading} hint="시험지 PDF · 스캔 이미지 · HWPX · DOCX (스캔본은 OCR 토큰 1개)" />
           </TabsContent>
         </Tabs>
       </div>
@@ -142,7 +142,7 @@ export function ExamAnalysisForm({ sampleText }: { sampleText: string }) {
           </ul>
         </div>
         <Button size="xl" variant="gradient" className="w-full" onClick={submit} disabled={pending || examText.trim().length < 50}>
-          <BarChart3 className="size-5" /> 분석 보고서 만들기 (연필 {FEATURE_COSTS.examReport}자루)
+          <BarChart3 className="size-5" /> 분석 보고서 만들기 (토큰 {FEATURE_COSTS.examReport}개)
         </Button>
       </div>
       {pending && (

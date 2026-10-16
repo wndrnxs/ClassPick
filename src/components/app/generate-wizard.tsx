@@ -323,7 +323,7 @@ export function GenerateWizard({
                   <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-soft/70 p-4 sm:flex-row sm:items-center">
                     <ScanText className="size-6 shrink-0 text-amber-600" />
                     <p className="flex-1 text-sm leading-relaxed text-amber-900">
-                      <strong>{pendingOcr.name}</strong>은(는) 스캔 이미지 문서예요. 스마트 OCR로 텍스트를 읽어 올까요? (연필 {FEATURE_COSTS.ocrPerFile}자루)
+                      <strong>{pendingOcr.name}</strong>은(는) 스캔 이미지 문서예요. 스마트 OCR로 텍스트를 읽어 올까요? (토큰 {FEATURE_COSTS.ocrPerFile}개)
                     </p>
                     <Button onClick={runOcr} disabled={uploading} variant="default" size="sm">
                       스마트 OCR 실행
@@ -331,7 +331,7 @@ export function GenerateWizard({
                   </div>
                 )}
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  HWPX·DOCX·TXT·텍스트 PDF는 무료로 바로 변환되고, 스캔 PDF·이미지는 스마트 OCR(연필 {FEATURE_COSTS.ocrPerFile}자루)로 변환됩니다.
+                  HWPX·DOCX·TXT·텍스트 PDF는 무료로 바로 변환되고, 스캔 PDF·이미지는 스마트 OCR(토큰 {FEATURE_COSTS.ocrPerFile}개)로 변환됩니다.
                 </p>
               </TabsContent>
             </Tabs>
@@ -457,7 +457,7 @@ export function GenerateWizard({
                     </span>
                   </label>
                   <div className="mt-4 flex items-center justify-between border-t pt-3">
-                    <Badge variant="amber">연필 {meta.cost}자루</Badge>
+                    <Badge variant="amber">토큰 {meta.cost}개</Badge>
                     {countKey && on && (
                       <CountStepper
                         value={counts[countKey]}
@@ -474,9 +474,9 @@ export function GenerateWizard({
           </div>
           <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl border bg-white/95 p-4 shadow-[var(--shadow-lift)] backdrop-blur sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm">
-              <strong>{types.length}종</strong> 선택 · 사용 연필 <strong className="text-primary">{cost}자루</strong>
-              <span className="text-muted-foreground"> / 보유 {balance}자루</span>
-              {cost > balance && <span className="ml-2 font-semibold text-red-600">연필이 부족해요</span>}
+              <strong>{types.length}종</strong> 선택 · 사용 토큰 <strong className="text-primary">{cost}개</strong>
+              <span className="text-muted-foreground"> / 보유 {balance}개</span>
+              {cost > balance && <span className="ml-2 font-semibold text-red-600">토큰이 부족해요</span>}
             </p>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(1)}>
@@ -537,8 +537,8 @@ export function GenerateWizard({
                   ))}
                 </ul>
                 <p className="mt-3 flex items-center justify-between border-t pt-3 font-extrabold">
-                  <span>사용 연필</span>
-                  <span className="text-primary">{cost}자루</span>
+                  <span>사용 토큰</span>
+                  <span className="text-primary">{cost}개</span>
                 </p>
               </div>
             </div>

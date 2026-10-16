@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Pencil, UserRound } from "lucide-react";
+import { LogOut, Coins, UserRound } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -44,7 +44,7 @@ export function UserMenu({ name, email, isGuest }: { name: string; email: string
         )}
         <DropdownMenuItem asChild>
           <Link href="/app/billing">
-            <Pencil /> 연필 충전 · 사용 내역
+            <Coins /> 토큰 충전 · 사용 내역
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={logout}>

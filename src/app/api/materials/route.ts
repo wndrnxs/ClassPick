@@ -16,7 +16,7 @@ export const GET = handle(async (request: NextRequest) => {
   return Response.json({ materials });
 });
 
-/** 지문 → 선택한 자료 유형 생성 (연필 차감, 실패 시 환불) */
+/** 지문 → 선택한 자료 유형 생성 (토큰 차감, 실패 시 환불) */
 export const POST = handle(async (request: Request) => {
   const user = await requireApiUser();
   const input = await readJson(request, CreateMaterialInput);

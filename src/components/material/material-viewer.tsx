@@ -74,7 +74,7 @@ function DeleteButton({ id }: { id: string }) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>이 자료를 삭제할까요?</DialogTitle>
-          <DialogDescription>삭제한 자료는 복구할 수 없으며, 사용한 연필은 환불되지 않습니다.</DialogDescription>
+          <DialogDescription>삭제한 자료는 복구할 수 없으며, 사용한 토큰은 환불되지 않습니다.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
@@ -127,7 +127,7 @@ export function MaterialViewer({
     meta.push(material.sourceNote);
   }
   if (!isSample) meta.push(formatDate(material.createdAt));
-  if (!isSample && material.pointsSpent > 0) meta.push(`연필 ${material.pointsSpent}자루 사용`);
+  if (!isSample && material.pointsSpent > 0) meta.push(`토큰 ${material.pointsSpent}개 사용`);
 
   return (
     <div className="space-y-5">

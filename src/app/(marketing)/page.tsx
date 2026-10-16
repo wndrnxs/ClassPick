@@ -20,8 +20,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <SectionHeading
             eyebrow="Pricing"
-            title="필요한 만큼, 연필로 간단하게"
-            description="자료 유형마다 정해진 연필만 사용합니다. 가입하면 바로 쓸 수 있는 무료 연필을 드려요."
+            title="필요한 만큼, 토큰으로 간단하게"
+            description="자료 유형마다 정해진 토큰만 사용합니다. 가입하면 바로 쓸 수 있는 무료 토큰을 드려요."
           />
           <div className="mt-14">
             <PlanCards />

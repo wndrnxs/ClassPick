@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Check, Pencil } from "lucide-react";
+import { Check, Coins } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ export function PencilPackList({ provider }: { provider: "mock" | "toss" }) {
     try {
       const res = await api<{ status: string; balance?: number }>("/api/billing/checkout", { method: "POST", json: { packId } });
       if (res.status === "paid") {
-        toast.success(`충전이 완료되었어요! 현재 연필 ${res.balance}자루`);
+        toast.success(`충전이 완료되었어요! 현재 토큰 ${res.balance}개`);
         router.refresh();
       } else {
         toast.info("결제창 연동(토스페이먼츠)이 설정되지 않았습니다. 관리자에게 문의해 주세요.");
@@ -40,7 +40,7 @@ export function PencilPackList({ provider }: { provider: "mock" | "toss" }) {
           <div key={p.id} className={cn("relative flex flex-col rounded-2xl border bg-white p-6", popular && "border-2 border-primary shadow-[var(--shadow-lift)]")}>
             {popular && <Badge className="absolute -top-3 left-6">추천</Badge>}
             <span className="flex size-11 items-center justify-center rounded-xl bg-amber-soft text-amber-600">
-              <Pencil className="size-5" />
+              <Coins className="size-5" />
             </span>
             <p className="mt-4 text-lg font-extrabold">{p.label}</p>
             <p className="text-sm text-muted-foreground">{p.note}</p>
@@ -54,7 +54,7 @@ export function PencilPackList({ provider }: { provider: "mock" | "toss" }) {
       {provider === "mock" && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground md:col-span-3">
           <Check className="size-3.5 text-emerald" />
-          현재는 테스트 결제 모드입니다. 실제 결제 없이 연필이 충전됩니다. (PAYMENT_PROVIDER=toss 설정 시 토스페이먼츠 승인 흐름 사용)
+          현재는 테스트 결제 모드입니다. 실제 결제 없이 토큰이 충전됩니다. (PAYMENT_PROVIDER=toss 설정 시 토스페이먼츠 승인 흐름 사용)
         </p>
       )}
     </div>

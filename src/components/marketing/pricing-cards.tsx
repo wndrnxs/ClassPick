@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, Pencil } from "lucide-react";
+import { Check, Coins } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function PlanCards() {
               {plan.period && <span className="text-sm text-muted-foreground">/ {plan.period}</span>}
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-primary">
-              <Pencil className="size-4" /> {plan.pencils}
+              <Coins className="size-4" /> {plan.pencils}
             </p>
             <ul className="mt-6 flex-1 space-y-2.5">
               {plan.features.map((f) => (
@@ -51,34 +51,34 @@ export function PencilCostTable() {
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="rounded-2xl border bg-white p-6">
         <h3 className="flex items-center gap-2 font-extrabold">
-          <Pencil className="size-4 text-primary" /> 연필 사용량
+          <Coins className="size-4 text-primary" /> 토큰 사용량
         </h3>
         <table className="mt-4 w-full text-sm">
           <tbody className="divide-y">
             {MATERIAL_TYPE_ORDER.map((t) => (
               <tr key={t}>
                 <td className="py-2.5 text-slate-700">{MATERIAL_TYPE_META[t].label}</td>
-                <td className="py-2.5 text-right font-bold tabular-nums">{MATERIAL_TYPE_META[t].cost}자루</td>
+                <td className="py-2.5 text-right font-bold tabular-nums">{MATERIAL_TYPE_META[t].cost}개</td>
               </tr>
             ))}
             <tr>
               <td className="py-2.5 text-slate-700">스캔 문서 스마트 OCR (파일당)</td>
-              <td className="py-2.5 text-right font-bold tabular-nums">{FEATURE_COSTS.ocrPerFile}자루</td>
+              <td className="py-2.5 text-right font-bold tabular-nums">{FEATURE_COSTS.ocrPerFile}개</td>
             </tr>
             <tr>
               <td className="py-2.5 text-slate-700">시험지 분석 보고서</td>
-              <td className="py-2.5 text-right font-bold tabular-nums">{FEATURE_COSTS.examReport}자루</td>
+              <td className="py-2.5 text-right font-bold tabular-nums">{FEATURE_COSTS.examReport}개</td>
             </tr>
             <tr>
               <td className="py-2.5 text-slate-700">여러 지문 모음 시험지 제본</td>
-              <td className="py-2.5 text-right font-bold tabular-nums">{FEATURE_COSTS.examCompose}자루</td>
+              <td className="py-2.5 text-right font-bold tabular-nums">{FEATURE_COSTS.examCompose}개</td>
             </tr>
           </tbody>
         </table>
-        <p className="mt-3 text-xs text-muted-foreground">생성에 실패하면 사용한 연필은 자동으로 환불됩니다. 다운로드는 횟수 제한 없이 무료입니다.</p>
+        <p className="mt-3 text-xs text-muted-foreground">생성에 실패하면 사용한 토큰은 자동으로 환불됩니다. 다운로드는 횟수 제한 없이 무료입니다.</p>
       </div>
       <div className="rounded-2xl border bg-white p-6">
-        <h3 className="font-extrabold">연필 충전 (1회 결제)</h3>
+        <h3 className="font-extrabold">토큰 충전 (1회 결제)</h3>
         <ul className="mt-4 space-y-3">
           {PENCIL_PACKS.map((p) => (
             <li

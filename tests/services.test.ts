@@ -118,7 +118,7 @@ describe("materials", () => {
     });
     expect(m.pointsSpent).toBe(0);
     expect(m.sourceText).toContain("나타샤");
-    // 이미지는 데모 모드에서 AI OCR이 불가하므로 실패하고 연필은 환불됩니다.
+    // 이미지는 데모 모드에서 AI OCR이 불가하므로 실패하고 토큰은 환불됩니다.
     await expect(
       s.materials.createOcrMaterial(id, { name: "scan.png", type: "image/png", bytes: new Uint8Array([137, 80, 78, 71]) }),
     ).rejects.toThrow(/AI 엔진/);

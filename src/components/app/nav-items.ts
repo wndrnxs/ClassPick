@@ -5,5 +5,5 @@ export const APP_NAV = [
   { href: "/app/ocr", label: "스마트 OCR", icon: "scan" },
   { href: "/app/exam-builder", label: "모음 시험지 제본", icon: "book" },
   { href: "/app/exam-analysis", label: "시험지 분석 보고서", icon: "chart" },
-  { href: "/app/billing", label: "연필 충전", icon: "pencil" },
+  { href: "/app/billing", label: "토큰 충전", icon: "coins" },
 ] as const;

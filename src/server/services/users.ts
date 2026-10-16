@@ -30,7 +30,7 @@ export async function registerUser(input: SignupInput) {
       createdAt: new Date(),
     })
     .run();
-  await creditPoints(id, SIGNUP_BONUS_PENCILS, "signup_bonus", "가입 축하 무료 체험 연필");
+  await creditPoints(id, SIGNUP_BONUS_PENCILS, "signup_bonus", "가입 축하 무료 체험 토큰");
   return id;
 }
 
@@ -58,7 +58,7 @@ export async function createGuestUser() {
       createdAt: new Date(),
     })
     .run();
-  await creditPoints(id, SIGNUP_BONUS_PENCILS, "signup_bonus", "체험 계정 무료 연필");
+  await creditPoints(id, SIGNUP_BONUS_PENCILS, "signup_bonus", "체험 계정 무료 토큰");
   await seedSampleMaterials(id);
   return id;
 }

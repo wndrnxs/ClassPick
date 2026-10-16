@@ -28,14 +28,14 @@ async function applyDelta(tx: Tx, userId: string, delta: number, reason: Reason,
   return balanceAfter;
 }
 
-/** 연필 차감 (원자적). 잔액이 부족하면 InsufficientPointsError(402). */
+/** 토큰 차감 (원자적). 잔액이 부족하면 InsufficientPointsError(402). */
 export async function debitPoints(userId: string, amount: number, memo: string, refId?: string): Promise<number> {
   if (amount <= 0) return getBalance(userId);
   const db = await getDb();
   return db.transaction((tx) => applyDelta(tx, userId, -amount, "generation", memo, refId), { behavior: "immediate" });
 }
 
-/** 연필 적립 (가입 보너스·충전·환불) */
+/** 토큰 적립 (가입 보너스·충전·환불) */
 export async function creditPoints(userId: string, amount: number, reason: Reason, memo: string, refId?: string): Promise<number> {
   if (amount <= 0) return getBalance(userId);
   const db = await getDb();

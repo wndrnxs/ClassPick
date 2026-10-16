@@ -67,7 +67,7 @@ function postProcess<T extends MaterialType>(type: T, out: SectionOutput[T], ctx
   }
 }
 
-/** 선택한 자료 유형들을 병렬로 생성합니다. 한 유형이라도 실패하면 전체를 실패로 처리합니다(연필 환불). */
+/** 선택한 자료 유형들을 병렬로 생성합니다. 한 유형이라도 실패하면 전체를 실패로 처리합니다(토큰 환불). */
 export async function generatePassageContent(input: CreateMaterialInput) {
   const engine = getEngine();
   const ctx: PassageContext = {
