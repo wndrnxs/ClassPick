@@ -73,22 +73,22 @@ function toSummary(row: Material): MaterialSummaryDTO {
 /* 조회 · 삭제                                                          */
 /* ------------------------------------------------------------------ */
 
-export function listMaterials(userId: string, opts: { kind?: MaterialKind; q?: string; limit?: number } = {}) {
+export async function listMaterials(userId: string, opts: { kind?: MaterialKind; q?: string; limit?: number } = {}) {
   const conditions = [eq(schema.materials.userId, userId)];
   if (opts.kind) conditions.push(eq(schema.materials.kind, opts.kind));
   if (opts.q) conditions.push(like(schema.materials.title, `%${opts.q.replace(/[%_]/g, "")}%`));
-  return getDb()
+  const rows = await (await getDb())
     .select()
     .from(schema.materials)
     .where(and(...conditions))
     .orderBy(desc(schema.materials.createdAt))
     .limit(opts.limit ?? 100)
-    .all()
-    .map(toSummary);
+    .all();
+  return rows.map(toSummary);
 }
 
-function findOwned(userId: string, id: string): Material {
-  const row = getDb()
+async function findOwned(userId: string, id: string): Promise<Material> {
+  const row = await (await getDb())
     .select()
     .from(schema.materials)
     .where(and(eq(schema.materials.id, id), eq(schema.materials.userId, userId)))
@@ -97,18 +97,18 @@ function findOwned(userId: string, id: string): Material {
   return row;
 }
 
-export function getMaterial(userId: string, id: string): MaterialDTO {
-  return toDTO(findOwned(userId, id));
+export async function getMaterial(userId: string, id: string): Promise<MaterialDTO> {
+  return toDTO(await findOwned(userId, id));
 }
 
-export function deleteMaterial(userId: string, id: string) {
-  findOwned(userId, id);
-  getDb().delete(schema.materials).where(eq(schema.materials.id, id)).run();
+export async function deleteMaterial(userId: string, id: string) {
+  await findOwned(userId, id);
+  await (await getDb()).delete(schema.materials).where(eq(schema.materials.id, id)).run();
 }
 
-function insertMaterial(values: typeof schema.materials.$inferInsert): MaterialDTO {
+async function insertMaterial(values: typeof schema.materials.$inferInsert): Promise<MaterialDTO> {
   const now = new Date();
-  const row = getDb()
+  const row = await (await getDb())
     .insert(schema.materials)
     .values({ createdAt: now, updatedAt: now, ...values })
     .returning()
@@ -118,11 +118,11 @@ function insertMaterial(values: typeof schema.materials.$inferInsert): MaterialD
 
 /** 연필을 먼저 차감하고, 작업이 실패하면 같은 수량을 환불합니다. */
 async function withPoints<T>(userId: string, cost: number, memo: string, refId: string, work: () => Promise<T>): Promise<T> {
-  debitPoints(userId, cost, memo, refId);
+  await debitPoints(userId, cost, memo, refId);
   try {
     return await work();
   } catch (err) {
-    creditPoints(userId, cost, "refund", `생성 실패 환불 · ${memo}`, refId);
+    await creditPoints(userId, cost, "refund", `생성 실패 환불 · ${memo}`, refId);
     throw err;
   }
 }
@@ -203,8 +203,9 @@ export async function createExamReportMaterial(userId: string, input: AnalyzeExa
 }
 
 export async function composeExamSetMaterial(userId: string, input: ComposeExamInput): Promise<MaterialDTO> {
-  const sections = input.sections.map(({ materialId, include }) => {
-    const row = findOwned(userId, materialId);
+  const sections = [];
+  for (const { materialId, include } of input.sections) {
+    const row = await findOwned(userId, materialId);
     if (row.kind !== "passage") throw new HttpError(400, `‘${row.title}’은(는) 지문 자료가 아니어서 묶을 수 없습니다.`);
     const c = row.content as PassageContent;
     const section = {
@@ -217,8 +218,8 @@ export async function composeExamSetMaterial(userId: string, input: ComposeExamI
     if (!section.mcq.length && !section.short_answer.length && !section.ox.length) {
       throw new HttpError(400, `‘${row.title}’에는 선택한 유형의 문항이 없습니다. 먼저 문항을 생성해 주세요.`);
     }
-    return section;
-  });
+    sections.push(section);
+  }
 
   const exam: ExamSet = {
     title: input.title,
@@ -250,14 +251,13 @@ export async function composeExamSetMaterial(userId: string, input: ComposeExamI
 }
 
 /** 체험 계정에 샘플 자료를 미리 채워 둡니다. */
-export function seedSampleMaterials(userId: string) {
+export async function seedSampleMaterials(userId: string) {
   const base = Date.now();
-  SAMPLES.forEach((sample, i) => {
+  const db = await getDb();
+  const values = SAMPLES.map((sample, i) => {
     const types = Object.keys(sample.content) as MaterialType[];
     const at = new Date(base - (SAMPLES.length - i) * 60_000);
-    getDb()
-      .insert(schema.materials)
-      .values({
+    return {
         id: randomUUID(),
         userId,
         kind: "passage",
@@ -272,7 +272,7 @@ export function seedSampleMaterials(userId: string) {
         pointsSpent: 0,
         createdAt: at,
         updatedAt: at,
-      })
-      .run();
+    } satisfies typeof schema.materials.$inferInsert;
   });
+  await db.insert(schema.materials).values(values).run();
 }

@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "시험지 분석 보고서" };
 
 async function RecentReports() {
   const user = await requireUser();
-  const items = listMaterials(user.id, { kind: "exam_report", limit: 10 });
+  const items = await listMaterials(user.id, { kind: "exam_report", limit: 10 });
   if (!items.length) return null;
   return (
     <section className="mt-10">

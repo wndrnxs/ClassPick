@@ -41,7 +41,7 @@ async function Balance() {
 
 async function History() {
   const user = await requireUser();
-  const txs = listTransactions(user.id, 50);
+  const txs = await listTransactions(user.id, 50);
   return (
     <div className="overflow-x-auto rounded-2xl border bg-white">
       <table className="w-full min-w-[520px] text-sm">

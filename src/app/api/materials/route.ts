@@ -9,7 +9,7 @@ export const GET = handle(async (request: NextRequest) => {
   const user = await requireApiUser();
   const kind = request.nextUrl.searchParams.get("kind");
   const q = request.nextUrl.searchParams.get("q") ?? undefined;
-  const materials = listMaterials(user.id, {
+  const materials = await listMaterials(user.id, {
     kind: MATERIAL_KINDS.includes(kind as MaterialKind) ? (kind as MaterialKind) : undefined,
     q,
   });

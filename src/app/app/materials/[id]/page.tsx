@@ -17,7 +17,7 @@ async function Viewer({ params }: { params: PageProps<"/app/materials/[id]">["pa
   const { id } = await params;
   let material;
   try {
-    material = getMaterial(user.id, id);
+    material = await getMaterial(user.id, id);
   } catch (e) {
     if (e instanceof HttpError && e.status === 404) notFound();
     throw e;

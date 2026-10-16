@@ -18,7 +18,10 @@ const hashToken = (token: string) => createHash("sha256").update(token).digest("
 export async function createSession(userId: string) {
   const token = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  getDb().insert(schema.sessions).values({ id: hashToken(token), userId, expiresAt, createdAt: new Date() }).run();
+  await (await getDb())
+    .insert(schema.sessions)
+    .values({ id: hashToken(token), userId, expiresAt, createdAt: new Date() })
+    .run();
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -31,7 +34,7 @@ export async function createSession(userId: string) {
 export async function destroySession() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  if (token) getDb().delete(schema.sessions).where(eq(schema.sessions.id, hashToken(token))).run();
+  if (token) await (await getDb()).delete(schema.sessions).where(eq(schema.sessions.id, hashToken(token))).run();
   store.delete(SESSION_COOKIE);
 }
 
@@ -41,7 +44,7 @@ export async function readSessionUserId(): Promise<string | null> {
   if (!token) return null;
   // 세션 만료 비교(현재 시각)는 요청 시점에만 수행합니다.
   await connection();
-  const row = getDb()
+  const row = await (await getDb())
     .select({ userId: schema.sessions.userId })
     .from(schema.sessions)
     .where(and(eq(schema.sessions.id, hashToken(token)), gt(schema.sessions.expiresAt, new Date())))

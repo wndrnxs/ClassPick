@@ -35,7 +35,7 @@ const signup = (email: string) =>
 describe("users & points", () => {
   it("grants the signup bonus and authenticates", async () => {
     const id = await signup("a@test.kr");
-    expect(s.points.getBalance(id)).toBe(30);
+    expect(await s.points.getBalance(id)).toBe(30);
     await expect(s.users.authenticate("a@test.kr", "password123")).resolves.toBe(id);
     await expect(s.users.authenticate("a@test.kr", "wrong-password")).rejects.toThrow();
     await expect(signup("a@test.kr")).rejects.toThrow(/이미 가입/);
@@ -43,11 +43,11 @@ describe("users & points", () => {
 
   it("keeps an append-only ledger and blocks overdrafts", async () => {
     const id = await signup("b@test.kr");
-    expect(s.points.debitPoints(id, 10, "test")).toBe(20);
-    expect(() => s.points.debitPoints(id, 999, "too much")).toThrow(s.http.InsufficientPointsError);
-    expect(s.points.getBalance(id)).toBe(20);
-    expect(s.points.creditPoints(id, 5, "refund", "back")).toBe(25);
-    const ledger = s.points.listTransactions(id);
+    expect(await s.points.debitPoints(id, 10, "test")).toBe(20);
+    await expect(s.points.debitPoints(id, 999, "too much")).rejects.toThrow(s.http.InsufficientPointsError);
+    expect(await s.points.getBalance(id)).toBe(20);
+    expect(await s.points.creditPoints(id, 5, "refund", "back")).toBe(25);
+    const ledger = await s.points.listTransactions(id);
     expect(ledger.map((t) => t.delta)).toEqual([5, -10, 30]);
     expect(ledger[0].balanceAfter).toBe(25);
   });
@@ -67,12 +67,12 @@ describe("materials", () => {
     });
     expect(m.kind).toBe("passage");
     expect(m.pointsSpent).toBe(3);
-    expect(s.points.getBalance(id)).toBe(27);
+    expect(await s.points.getBalance(id)).toBe(27);
     if (m.kind !== "passage") throw new Error("unexpected kind");
     expect(m.content.mcq?.questions).toHaveLength(2);
     for (const v of m.content.vocab!.items) expect(v.initials).toMatch(/^[ㄱ-ㅎ]+$/);
-    expect(s.materials.listMaterials(id)).toHaveLength(1);
-    expect(() => s.materials.getMaterial(other, m.id)).toThrow(/찾을 수 없습니다/);
+    expect(await s.materials.listMaterials(id)).toHaveLength(1);
+    await expect(s.materials.getMaterial(other, m.id)).rejects.toThrow(/찾을 수 없습니다/);
   });
 
   it("refunds pencils when generation fails", async () => {
@@ -89,13 +89,13 @@ describe("materials", () => {
       }),
     ).rejects.toThrow("AI down");
     spy.mockRestore();
-    expect(s.points.getBalance(id)).toBe(30);
-    expect(s.points.listTransactions(id).map((t) => t.reason)).toEqual(["refund", "generation", "signup_bonus"]);
+    expect(await s.points.getBalance(id)).toBe(30);
+    expect((await s.points.listTransactions(id)).map((t) => t.reason)).toEqual(["refund", "generation", "signup_bonus"]);
   });
 
   it("composes an exam set from owned passage materials", async () => {
     const id = await s.users.createGuestUser();
-    const passages = s.materials.listMaterials(id, { kind: "passage" });
+    const passages = await s.materials.listMaterials(id, { kind: "passage" });
     expect(passages.length).toBe(3);
     const exam = await s.materials.composeExamSetMaterial(id, {
       title: "모의평가",
@@ -122,6 +122,6 @@ describe("materials", () => {
     await expect(
       s.materials.createOcrMaterial(id, { name: "scan.png", type: "image/png", bytes: new Uint8Array([137, 80, 78, 71]) }),
     ).rejects.toThrow(/AI 엔진/);
-    expect(s.points.getBalance(id)).toBe(30);
+    expect(await s.points.getBalance(id)).toBe(30);
   });
 });

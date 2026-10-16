@@ -48,7 +48,7 @@ npm run typecheck            # 라우트 타입 생성 + tsc
 | `CLASSPICK_AI_MODE` | `auto` | `auto` / `claude` / `demo` |
 | `CLASSPICK_AI_MODEL` | `claude-opus-5-5` | 사용할 Claude 모델 |
 | `CLASSPICK_AI_EFFORT` | `high` | `low`~`max` (출제 품질과 비용의 균형) |
-| `DATABASE_PATH` | `./data/classpick.db` | SQLite 파일 경로 |
+| `DATABASE_PATH` | `./data/classpick.db` | SQLite(libSQL) 파일 경로 |
 | `PAYMENT_PROVIDER` | `mock` | `mock`(테스트 결제) / `toss` |
 | `TOSS_SECRET_KEY` | – | 토스페이먼츠 결제 승인용 시크릿 키 |
 
@@ -93,7 +93,7 @@ src/
 ├─ lib/                   클라이언트·서버 공용: Zod 스키마, 카탈로그(단가·요금제), 한글 유틸, 샘플 데이터
 └─ server/                서버 전용 ("server-only")
    ├─ auth/               scrypt 비밀번호, 세션(토큰 해시 저장), Data Access Layer
-   ├─ db/                 Drizzle 스키마 · 클라이언트(자동 마이그레이션)
+   ├─ db/                 Drizzle 스키마 · libSQL 클라이언트(자동 마이그레이션, 네이티브 컴파일 불필요)
    ├─ ai/                 프롬프트, Claude 엔진, 데모 엔진, 파이프라인(후처리)
    ├─ ingest/             파일 → 텍스트
    ├─ export/             DocModel, HWPX 빌더, DOCX 렌더러, 다운로드 응답

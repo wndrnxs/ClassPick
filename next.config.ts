@@ -3,8 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
-  // better-sqlite3 is a native addon; keep it out of the server bundle.
-  serverExternalPackages: ["better-sqlite3"],
+  // libSQL ships prebuilt native binaries; keep it out of the server bundle.
+  serverExternalPackages: ["@libsql/client", "libsql"],
   turbopack: {
     rules: {
       "*.css": {

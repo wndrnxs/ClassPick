@@ -53,7 +53,7 @@ async function List({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const kind = MATERIAL_KINDS.includes(sp.kind as MaterialKind) ? (sp.kind as MaterialKind) : undefined;
   const q = typeof sp.q === "string" ? sp.q.trim() : undefined;
-  const items = listMaterials(user.id, { kind, q });
+  const items = await listMaterials(user.id, { kind, q });
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center rounded-2xl border border-dashed bg-white px-6 py-16 text-center">

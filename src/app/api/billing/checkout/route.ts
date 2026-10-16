@@ -7,5 +7,5 @@ import { startCheckout } from "@/server/services/billing";
 export const POST = handle(async (request: Request) => {
   const user = await requireApiUser();
   const { packId } = await readJson(request, z.object({ packId: z.string().min(1) }));
-  return Response.json(startCheckout(user.id, packId));
+  return Response.json(await startCheckout(user.id, packId));
 });

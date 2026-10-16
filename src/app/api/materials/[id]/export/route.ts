@@ -10,5 +10,5 @@ export const GET = handle(async (request: NextRequest, ctx: RouteContext<"/api/m
   const user = await requireApiUser();
   const { id } = await ctx.params;
   const query = parseExportQuery(request.nextUrl.searchParams);
-  return exportResponse(getMaterial(user.id, id), query);
+  return exportResponse(await getMaterial(user.id, id), query);
 });

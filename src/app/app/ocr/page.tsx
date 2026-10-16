@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "스마트 OCR" };
 
 async function RecentOcr() {
   const user = await requireUser();
-  const items = listMaterials(user.id, { kind: "ocr", limit: 10 });
+  const items = await listMaterials(user.id, { kind: "ocr", limit: 10 });
   if (!items.length) return null;
   return (
     <section className="mt-10">

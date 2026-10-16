@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "모음 시험지 제본" };
 
 async function Builder() {
   const user = await requireUser();
-  const candidates = listMaterials(user.id, { kind: "passage" });
+  const candidates = await listMaterials(user.id, { kind: "passage" });
   return <ExamBuilder candidates={candidates} />;
 }
 

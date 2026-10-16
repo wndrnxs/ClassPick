@@ -22,11 +22,11 @@ function findPack(packId: string) {
  * - toss: 주문을 pending으로 만들고, 클라이언트가 토스페이먼츠 결제창을 띄운 뒤
  *   successUrl에서 confirmTossPayment()로 서버 승인합니다.
  */
-export function startCheckout(userId: string, packId: string) {
+export async function startCheckout(userId: string, packId: string) {
   const pack = findPack(packId);
   const orderId = `cp_${Date.now().toString(36)}_${randomUUID().slice(0, 8)}`;
   const provider = env.paymentProvider;
-  getDb()
+  await (await getDb())
     .insert(schema.payments)
     .values({
       id: randomUUID(),
@@ -42,7 +42,7 @@ export function startCheckout(userId: string, packId: string) {
     .run();
 
   if (provider === "mock") {
-    const balance = creditPoints(userId, pack.pencils, "purchase", `${pack.label} 충전 (테스트 결제)`, orderId);
+    const balance = await creditPoints(userId, pack.pencils, "purchase", `${pack.label} 충전 (테스트 결제)`, orderId);
     return { provider, status: "paid" as const, orderId, balance };
   }
   return { provider, status: "pending" as const, orderId, amount: pack.price, orderName: `클래스픽 ${pack.label}` };
@@ -51,8 +51,8 @@ export function startCheckout(userId: string, packId: string) {
 /** 토스페이먼츠 결제 승인 (https://docs.tosspayments.com — 결제 승인 API) */
 export async function confirmTossPayment(userId: string, params: { paymentKey: string; orderId: string; amount: number }) {
   if (!env.tossSecretKey) throw new HttpError(503, "토스페이먼츠 시크릿 키가 설정되지 않았습니다.");
-  const db = getDb();
-  const payment = db
+  const db = await getDb();
+  const payment = await db
     .select()
     .from(schema.payments)
     .where(and(eq(schema.payments.orderId, params.orderId), eq(schema.payments.userId, userId)))
@@ -70,21 +70,22 @@ export async function confirmTossPayment(userId: string, params: { paymentKey: s
     body: JSON.stringify(params),
   });
   if (!res.ok) {
-    db.update(schema.payments).set({ status: "failed" }).where(eq(schema.payments.id, payment.id)).run();
+    await db.update(schema.payments).set({ status: "failed" }).where(eq(schema.payments.id, payment.id)).run();
     const body = (await res.json().catch(() => ({}))) as { message?: string };
     throw new HttpError(402, body.message ?? "결제 승인에 실패했습니다.");
   }
-  db.update(schema.payments)
+  await db
+    .update(schema.payments)
     .set({ status: "paid", paymentKey: params.paymentKey })
     .where(eq(schema.payments.id, payment.id))
     .run();
   const pack = findPack(payment.packId);
-  const balance = creditPoints(userId, payment.pencils, "purchase", `${pack.label} 충전`, payment.orderId);
+  const balance = await creditPoints(userId, payment.pencils, "purchase", `${pack.label} 충전`, payment.orderId);
   return { balance, alreadyPaid: false };
 }
 
-export function listPayments(userId: string) {
-  return getDb()
+export async function listPayments(userId: string) {
+  return (await getDb())
     .select()
     .from(schema.payments)
     .where(eq(schema.payments.userId, userId))

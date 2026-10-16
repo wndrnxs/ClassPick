@@ -16,7 +16,7 @@ async function MaterialPrint({ params, searchParams }: PageProps<"/print/materia
   const audience = (await searchParams).audience === "student" ? "student" : "teacher";
   let material;
   try {
-    material = getMaterial(user.id, id);
+    material = await getMaterial(user.id, id);
   } catch (e) {
     if (e instanceof HttpError && e.status === 404) notFound();
     throw e;

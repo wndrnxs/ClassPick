@@ -27,7 +27,7 @@ export type SessionUser = {
 export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const userId = await readSessionUserId();
   if (!userId) return null;
-  const user = getDb().select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  const user = await (await getDb()).select().from(schema.users).where(eq(schema.users.id, userId)).get();
   if (!user) return null;
   return {
     id: user.id,

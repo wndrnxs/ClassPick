@@ -53,7 +53,7 @@ async function Greeting() {
 
 async function RecentMaterials() {
   const user = await requireUser();
-  const recent = listMaterials(user.id, { limit: 6 });
+  const recent = await listMaterials(user.id, { limit: 6 });
   if (recent.length === 0) {
     return (
       <div className="flex flex-col items-center rounded-2xl border border-dashed bg-white px-6 py-12 text-center">

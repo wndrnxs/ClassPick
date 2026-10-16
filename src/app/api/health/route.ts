@@ -8,7 +8,7 @@ export async function GET() {
   await connection();
   let database = "ok";
   try {
-    getDb().get(sql`select 1`);
+    await (await getDb()).get(sql`select 1`);
   } catch {
     database = "error";
   }

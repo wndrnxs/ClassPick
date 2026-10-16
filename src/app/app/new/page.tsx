@@ -18,7 +18,7 @@ async function WizardLoader({ searchParams }: { searchParams: PageProps<"/app/ne
   let initial: WizardInitial | undefined;
   if (typeof from === "string") {
     try {
-      const m = getMaterial(user.id, from);
+      const m = await getMaterial(user.id, from);
       initial = { passage: m.sourceText, title: m.title, author: m.author, sourceNote: m.sourceNote };
     } catch (e) {
       if (!(e instanceof HttpError)) throw e;
