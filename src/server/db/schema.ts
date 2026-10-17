@@ -6,7 +6,8 @@
  *        ├─< point_transactions (토큰 원장: 적립/차감/환불 이력)
  *        ├─< payments           (토큰 충전 결제)
  *        ├─< classes ─< class_members >─ users(student)   (반 · 학생 명단)
- *        └─< assignments ─< submissions                  (시험 배포 · 학생 응시 결과)
+ *        └─< assignments ─┬─< submissions                (시험 배포 · 학생 응시 결과)
+ *                         └─< exam_starts                (응시 시작 시각 · 제한 시간 계산)
  */
 import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
@@ -154,6 +155,8 @@ export const assignments = sqliteTable(
     snapshot: text("snapshot", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
     /** 제출 후 학생에게 정답·해설 공개 여부 */
     revealAnswers: integer("reveal_answers", { mode: "boolean" }).notNull().default(true),
+    /** 제한 시간(분). null 이면 제한 없음 */
+    timeLimitMin: integer("time_limit_min"),
     status: text("status", { enum: ["open", "closed"] }).notNull().default("open"),
     createdAt: createdAt(),
   },
@@ -176,13 +179,31 @@ export const submissions = sqliteTable(
     total: integer("total").notNull(),
     /** 100점 만점 환산 점수 */
     score: integer("score").notNull(),
+    /** 서버 기록 기준 응시 시간(시작 → 제출) */
     durationSec: integer("duration_sec"),
+    /** 문항 ID → 풀이 시간(초). 직전 응답 이후 이 문항에 답하기까지 걸린 시간의 합 */
+    timings: text("timings", { mode: "json" }).$type<Record<string, number>>().notNull().default(sql`'{}'`),
     submittedAt: createdAt(),
   },
   (t) => [
     uniqueIndex("submissions_assignment_student_unique").on(t.assignmentId, t.studentId),
     index("submissions_student_idx").on(t.studentId),
   ],
+);
+
+/** 응시 시작 기록 — 시작 시각을 서버에 남겨 새로고침·기기 변경과 무관하게 시간을 잽니다. */
+export const examStarts = sqliteTable(
+  "exam_starts",
+  {
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id, { onDelete: "cascade" }),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.assignmentId, t.studentId] })],
 );
 
 export type User = typeof users.$inferSelect;

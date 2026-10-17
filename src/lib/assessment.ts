@@ -4,6 +4,7 @@
  * 1) 스냅샷: 배포 시점의 지문·문항을 고정해 저장합니다. 원본 자료가 바뀌거나 삭제되어도 결과가 유지됩니다.
  * 2) 채점: 자동 채점이 가능한 5지선다·OX 문항만 출제합니다. (서술형은 교사 채점이 필요해 제외)
  * 3) 분석: 교사용(문항별 정답률·선지 분포·점수 분포) / 학생용(유형·난이도·갈래별 정답률, 성적 추이, 오답 노트)
+ * 4) 시간: 시험 전체 응시 시간(서버 기록)과 문항별 풀이 시간(직전 응답 → 이 문항 응답까지)을 함께 분석합니다.
  */
 import type { MaterialDTO } from "@/lib/material-dto";
 import type { McqQuestion, Ox } from "@/lib/schemas";
@@ -182,6 +183,47 @@ export function grade(snapshot: AssessmentSnapshot, answers: AnswerSheet): Grade
 }
 
 /* ------------------------------------------------------------------ */
+/* 시간                                                                 */
+/* ------------------------------------------------------------------ */
+
+/** 수능 국어 기준 페이스: 80분 · 45문항 → 문항당 약 107초 */
+export const SUNEUNG_PACE_SEC = Math.round((80 * 60) / 45);
+const OX_PACE_SEC = 20;
+const MAX_SEC = 60 * 60 * 6;
+/** 네트워크 지연 등을 감안한 제한 시간 유예 */
+export const OVERTIME_GRACE_SEC = 30;
+
+export type Timings = Record<string, number>;
+
+/** 수능 페이스로 계산한 권장 제한 시간(분, 5분 단위 올림) */
+export function recommendedTimeLimitMin(snapshot: AssessmentSnapshot) {
+  const sec = snapshot.questions.reduce((n, q) => n + (q.kind === "mcq" ? SUNEUNG_PACE_SEC : OX_PACE_SEC), 0);
+  return Math.max(5, Math.ceil(sec / 60 / 5) * 5);
+}
+
+export function isOvertime(durationSec: number | null, timeLimitMin: number | null) {
+  return timeLimitMin != null && durationSec != null && durationSec > timeLimitMin * 60 + OVERTIME_GRACE_SEC;
+}
+
+/** 클라이언트가 보낸 문항별 풀이 시간을 정리합니다(알 수 없는 문항·잘못된 값 제거). */
+export function sanitizeTimings(snapshot: AssessmentSnapshot, raw: Record<string, unknown>): Timings {
+  const out: Timings = {};
+  for (const q of snapshot.questions) {
+    const v = raw[q.id];
+    if (typeof v === "number" && Number.isFinite(v) && v >= 0) out[q.id] = Math.min(MAX_SEC, Math.round(v));
+  }
+  return out;
+}
+
+const mean = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+const median = (xs: number[]) => {
+  if (!xs.length) return null;
+  const v = [...xs].sort((a, b) => a - b);
+  const m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+};
+
+/* ------------------------------------------------------------------ */
 /* 교사용 분석                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -193,6 +235,7 @@ export type SubmissionLike = {
   correctCount: number;
   total: number;
   durationSec: number | null;
+  timings: Timings;
   submittedAt: string;
 };
 
@@ -203,6 +246,10 @@ export type QuestionStat = {
   /** 5지선다: 선지 1~5 선택 수 / OX: [O, X] */
   choiceCounts: number[];
   blank: number;
+  /** 평균 풀이 시간(초) — 전체 / 정답자 / 오답자. 기록이 없으면 null */
+  avgTimeSec: number | null;
+  avgTimeCorrectSec: number | null;
+  avgTimeWrongSec: number | null;
 };
 
 export type Rate = { label: string; correct: number; total: number; rate: number };
@@ -262,9 +309,8 @@ function rateBy(entries: { key: string; correct: boolean }[], order?: string[]):
 export function analyzeAssignment(snapshot: AssessmentSnapshot, subs: SubmissionLike[], rosterSize: number) {
   const scores = subs.map((s) => s.score).sort((a, b) => a - b);
   const n = scores.length;
-  const mean = n ? scores.reduce((a, b) => a + b, 0) / n : 0;
-  const median = n ? (n % 2 ? scores[(n - 1) / 2] : (scores[n / 2 - 1] + scores[n / 2]) / 2) : 0;
-  const sd = n ? Math.sqrt(scores.reduce((a, s) => a + (s - mean) ** 2, 0) / n) : 0;
+  const avg = n ? scores.reduce((a, b) => a + b, 0) / n : 0;
+  const sd = n ? Math.sqrt(scores.reduce((a, s) => a + (s - avg) ** 2, 0) / n) : 0;
 
   const buckets = [
     { label: "0~39", min: 0, max: 39 },
@@ -279,8 +325,11 @@ export function analyzeAssignment(snapshot: AssessmentSnapshot, subs: Submission
     const choiceCounts = q.kind === "mcq" ? q.options.map(() => 0) : [0, 0];
     let correct = 0;
     let blank = 0;
+    const times: { t: number; ok: boolean }[] = [];
     for (const s of subs) {
       const a = s.answers[q.id];
+      const t = s.timings[q.id];
+      if (t !== undefined) times.push({ t, ok: a === q.answer });
       if (a === undefined || a === null) {
         blank += 1;
         continue;
@@ -289,16 +338,26 @@ export function analyzeAssignment(snapshot: AssessmentSnapshot, subs: Submission
       if (q.kind === "ox" && typeof a === "boolean") choiceCounts[a ? 0 : 1] += 1;
       if (a === q.answer) correct += 1;
     }
-    return { question: q, correctRate: pct(correct, subs.length), attempts: subs.length, choiceCounts, blank };
+    return {
+      question: q,
+      correctRate: pct(correct, subs.length),
+      attempts: subs.length,
+      choiceCounts,
+      blank,
+      avgTimeSec: mean(times.map((x) => x.t)),
+      avgTimeCorrectSec: mean(times.filter((x) => x.ok).map((x) => x.t)),
+      avgTimeWrongSec: mean(times.filter((x) => !x.ok).map((x) => x.t)),
+    };
   });
+  const durations = subs.map((s) => s.durationSec).filter((d): d is number => d != null);
 
   const entries = subs.flatMap((s) => snapshot.questions.map((q) => ({ q, correct: s.answers[q.id] === q.answer })));
 
   return {
     rosterSize,
     submitted: n,
-    mean: Math.round(mean * 10) / 10,
-    median,
+    mean: Math.round(avg * 10) / 10,
+    median: median(scores) ?? 0,
     sd: Math.round(sd * 10) / 10,
     max: n ? scores[n - 1] : 0,
     min: n ? scores[0] : 0,
@@ -311,6 +370,19 @@ export function analyzeAssignment(snapshot: AssessmentSnapshot, subs: Submission
       entries.map((e) => ({ key: e.q.difficulty, correct: e.correct })),
       ["상", "중", "하"],
     ),
+    timing: {
+      avgDurationSec: mean(durations),
+      medianDurationSec: median(durations),
+      /** 지문(세트)별 평균 소요 시간 = 그 지문 문항들의 평균 풀이 시간 합 */
+      bySection: snapshot.sections.map((sec, i) => {
+        const stats = questionStats.filter((qs) => qs.question.sectionIndex === i && qs.avgTimeSec != null);
+        return { title: sec.title, questionCount: stats.length, avgSec: stats.length ? stats.reduce((t, qs) => t + qs.avgTimeSec!, 0) : null };
+      }),
+      slowest: [...questionStats]
+        .filter((qs) => qs.avgTimeSec != null)
+        .sort((a, b) => b.avgTimeSec! - a.avgTimeSec!)
+        .slice(0, 3),
+    },
   };
 }
 
@@ -324,9 +396,14 @@ export type StudentAttempt = {
   submittedAt: string;
   score: number;
   answers: AnswerSheet;
+  timings: Timings;
+  durationSec: number | null;
   snapshot: AssessmentSnapshot;
   revealAnswers: boolean;
 };
+
+/** 내 평소 풀이 속도(같은 문항 형식의 중앙값) 대비: 1.5배 이상 오래 / 절반 미만으로 빨리 */
+export type Pace = "slow" | "fast" | null;
 
 export type WrongNote = {
   assignmentId: string;
@@ -335,41 +412,63 @@ export type WrongNote = {
   sectionTitle: string;
   myAnswer: AnswerValue | null;
   revealAnswers: boolean;
+  timeSec: number | null;
+  pace: Pace;
 };
 
 export function analyzeStudent(attempts: StudentAttempt[]) {
   const sorted = [...attempts].sort((a, b) => a.submittedAt.localeCompare(b.submittedAt));
   const entries = sorted.flatMap((a) =>
     a.snapshot.questions.map((q) => ({
+      a,
       q,
       skill: skillOf(q),
       genre: a.snapshot.sections[q.sectionIndex]?.genre ?? "기타",
       correct: a.answers[q.id] === q.answer,
+      time: a.timings[q.id] ?? null,
     })),
   );
   const bySkill = rateBy(entries.map((e) => ({ key: e.skill, correct: e.correct })));
   const total = entries.length;
   const correct = entries.filter((e) => e.correct).length;
-  const wrongNotes: WrongNote[] = sorted
-    .slice()
-    .reverse()
-    .flatMap((a) =>
-      a.snapshot.questions
-        .filter((q) => a.answers[q.id] !== q.answer)
-        .map((q) => ({
-          assignmentId: a.assignmentId,
-          assignmentTitle: a.title,
-          question: q,
-          sectionTitle: a.snapshot.sections[q.sectionIndex]?.title ?? "",
-          myAnswer: a.answers[q.id] ?? null,
-          revealAnswers: a.revealAnswers,
-        })),
-    );
+
+  // 풀이 속도: 5지선다와 OX는 걸리는 시간이 크게 달라 형식별 중앙값을 기준으로 삼습니다.
+  const timed = entries.filter((e): e is typeof e & { time: number } => e.time !== null);
+  const typical = {
+    mcq: median(timed.filter((e) => e.q.kind === "mcq").map((e) => e.time)),
+    ox: median(timed.filter((e) => e.q.kind === "ox").map((e) => e.time)),
+  };
+  const paceOf = (kind: AssessmentQuestion["kind"], time: number | null): Pace => {
+    const base = typical[kind];
+    if (time === null || !base) return null;
+    if (time >= base * 1.5) return "slow";
+    if (time < base * 0.5) return "fast";
+    return null;
+  };
+  const wrongEntries = entries.filter((e) => !e.correct);
+  const avgMcqSec = mean(timed.filter((e) => e.q.kind === "mcq").map((e) => e.time));
+
+  // 최근 시험부터, 시험 안에서는 문항 번호 순서대로
+  const wrongNotes: WrongNote[] = [...sorted].reverse().flatMap((a) =>
+    wrongEntries
+      .filter((e) => e.a === a)
+      .map((e) => ({
+        assignmentId: a.assignmentId,
+        assignmentTitle: a.title,
+        question: e.q,
+        sectionTitle: a.snapshot.sections[e.q.sectionIndex]?.title ?? "",
+        myAnswer: a.answers[e.q.id] ?? null,
+        revealAnswers: a.revealAnswers,
+        timeSec: e.time,
+        pace: paceOf(e.q.kind, e.time),
+      })),
+  );
+
   return {
     attempts: sorted.length,
     overallRate: pct(correct, total),
     averageScore: sorted.length ? Math.round((sorted.reduce((s, a) => s + a.score, 0) / sorted.length) * 10) / 10 : 0,
-    trend: sorted.map((a) => ({ title: a.title, submittedAt: a.submittedAt, score: a.score })),
+    trend: sorted.map((a) => ({ title: a.title, submittedAt: a.submittedAt, score: a.score, durationSec: a.durationSec })),
     bySkill,
     byCategory: rateBy(entries.map((e) => ({ key: e.q.category, correct: e.correct }))),
     byDifficulty: rateBy(
@@ -387,6 +486,23 @@ export function analyzeStudent(attempts: StudentAttempt[]) {
         missed: [...new Set(entries.filter((e) => e.skill === r.label && !e.correct).map((e) => e.q.category))],
       })),
     strengths: [...bySkill].filter((r) => r.rate >= 80 && r.total >= 2).sort((a, b) => b.rate - a.rate).slice(0, 3),
+    timing: {
+      timedCount: timed.length,
+      avgMcqSec,
+      avgOxSec: mean(timed.filter((e) => e.q.kind === "ox").map((e) => e.time)),
+      /** 5지선다 평균이 수능 페이스보다 몇 초 느린지(+) / 빠른지(-) */
+      paceDiffSec: avgMcqSec === null ? null : avgMcqSec - SUNEUNG_PACE_SEC,
+      /** 영역별 5지선다 평균 풀이 시간 (OX는 시간이 짧아 섞으면 왜곡되므로 제외) */
+      bySkill: SKILLS.map((skill) => {
+        const xs = timed.filter((e) => e.skill === skill && e.q.kind === "mcq");
+        return { label: skill, avgSec: mean(xs.map((e) => e.time)), count: xs.length, rate: pct(xs.filter((e) => e.correct).length, xs.length) };
+      })
+        .filter((r) => r.count > 0)
+        .sort((a, b) => b.avgSec! - a.avgSec!),
+      /** 오래 고민하고도 틀림 → 개념·독해 보완 / 빨리 풀다 틀림 → 실수(선지 끝까지 읽기) */
+      slowWrong: wrongEntries.filter((e) => paceOf(e.q.kind, e.time) === "slow").length,
+      fastWrong: wrongEntries.filter((e) => paceOf(e.q.kind, e.time) === "fast").length,
+    },
     wrongNotes,
   };
 }

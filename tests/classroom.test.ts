@@ -46,18 +46,33 @@ describe("classroom flow", () => {
     expect(before.state).toBe("todo");
     expect(JSON.stringify(before.exam)).not.toContain('"answer"');
 
-    const result = await classroom.submitAnswers(student, id, { answers: { "s0-m0": 2, "s0-o0": false }, durationSec: 120 });
-    expect(result).toEqual({ score: 22, correctCount: 2, total: 9 });
+    // 시작 기록은 한 번만 남고, 응시 시간은 서버 시작 기록으로 계산
+    const started = await classroom.startAssignment(student, id);
+    expect(started).toMatchObject({ remainingSec: null, timeLimitMin: null });
+    expect((await classroom.getStudentAssignment(student, id)).state === "todo").toBe(true);
+    const result = await classroom.submitAnswers(student, id, {
+      answers: { "s0-m0": 2, "s0-o0": false },
+      durationSec: 99999,
+      timings: { "s0-m0": 75, "s0-o0": 12, bogus: 3 },
+    });
+    expect(result).toMatchObject({ score: 22, correctCount: 2, total: 9, overtime: false });
+    expect(result.durationSec).toBeLessThan(5);
+    await expect(classroom.startAssignment(student, id)).rejects.toThrow(/이미 제출/);
     await expect(classroom.submitAnswers(student, id, { answers: {}, durationSec: null })).rejects.toThrow(/이미 제출/);
 
     // 정답 비공개 시험: 결과에 정답이 없음
     const after = await classroom.getStudentAssignment(student, id);
     expect(after.state).toBe("done");
     expect(JSON.stringify(after.exam)).not.toContain('"answer"');
+    if (after.state === "done") {
+      expect(after.result.timings).toEqual({ "s0-m0": 75, "s0-o0": 12 });
+      expect(after.result.classAvgTimes).toEqual({}); // 혼자 제출 → 반 평균 없음
+    }
 
     const report = await classroom.getAssignmentReport(teacher, id);
     expect(report.analysis.submitted).toBe(1);
     expect(report.notSubmitted).toHaveLength(0);
+    expect(report.analysis.questionStats[0].avgTimeSec).toBe(75);
     await expect(classroom.getAssignmentReport(student, id)).rejects.toThrow();
 
     const studentReport = await classroom.getStudentReport(student);
@@ -67,6 +82,31 @@ describe("classroom flow", () => {
     const late = await signup("late@test.kr", "student");
     await classroom.joinClass(late, cls.joinCode);
     await expect(classroom.submitAnswers(late, id, { answers: {}, durationSec: null })).rejects.toThrow(/마감/);
+  });
+
+  it("records server-side start time and flags submissions after the time limit", async () => {
+    const teacher = await signup("t2@test.kr", "teacher");
+    const student = await signup("s2@test.kr", "student");
+    const ids = await materials.seedSampleMaterials(teacher);
+    const cls = await classroom.createClass(teacher, "2반");
+    await classroom.joinClass(student, cls.joinCode);
+    const { id } = await classroom.createAssignment(teacher, { materialId: ids.azalea, classId: cls.id, title: "시간제한", revealAnswers: true, timeLimitMin: 10 });
+
+    const list = await classroom.listStudentAssignments(student);
+    expect(list[0]).toMatchObject({ timeLimitMin: 10, inProgress: null });
+    const started = await classroom.startAssignment(student, id);
+    expect(started.remainingSec).toBeGreaterThan(595);
+    expect((await classroom.listStudentAssignments(student))[0].inProgress?.remainingSec).toBeGreaterThan(595);
+
+    // 시작 시각을 11분 전으로 당겨 제한 시간 초과 제출을 재현
+    const { getDb, schema } = await import("@/server/db/client");
+    await (await getDb()).update(schema.examStarts).set({ startedAt: new Date(Date.now() - 11 * 60_000) }).run();
+    expect((await classroom.startAssignment(student, id)).remainingSec).toBe(0);
+    const result = await classroom.submitAnswers(student, id, { answers: {}, durationSec: null });
+    expect(result.overtime).toBe(true);
+    const report = await classroom.getAssignmentReport(teacher, id);
+    expect(report.assignment.timeLimitMin).toBe(10);
+    expect(report.submissions[0].overtime).toBe(true);
   });
 
   it("seeds guest teacher and student demo classrooms", async () => {
@@ -81,5 +121,10 @@ describe("classroom flow", () => {
     expect(mine.filter((a) => a.submission)).toHaveLength(2);
     const report = await classroom.getStudentReport(studentId);
     expect(report.attempts).toBe(2);
+    expect(report.timing.timedCount).toBeGreaterThan(0);
+    expect(mine.every((a) => a.timeLimitMin !== null)).toBe(true);
+    const teacherReport = await classroom.getAssignmentReport(teacherId, list[0].id);
+    expect(teacherReport.submissions.filter((s) => s.overtime)).toHaveLength(1);
+    expect(teacherReport.analysis.timing.slowest).toHaveLength(3);
   });
 });

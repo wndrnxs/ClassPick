@@ -2,23 +2,103 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { AlertTriangle, ArrowLeft, FileText, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, Timer, Users } from "lucide-react";
 
 import { AssignmentControls } from "@/components/classroom/assignment-controls";
 import { BarList, ColumnChart, StatTile } from "@/components/classroom/charts";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { QuestionStat } from "@/lib/assessment";
-import { cn, formatDateTime } from "@/lib/utils";
+import { cn, formatClock, formatDateTime, formatDuration } from "@/lib/utils";
 import { requireUser } from "@/server/auth/dal";
 import { HttpError } from "@/server/http";
-import { getAssignmentReport } from "@/server/services/classroom";
+import { getAssignmentReport, type AssignmentReport } from "@/server/services/classroom";
 
 export const metadata: Metadata = { title: "시험 성적 분석" };
 
 const CIRCLED = ["①", "②", "③", "④", "⑤"];
 const answerLabel = (q: QuestionStat["question"]) => (q.kind === "mcq" ? CIRCLED[q.answer - 1] : q.answer ? "O" : "X");
-const formatDuration = (sec: number | null) => (sec == null ? "-" : `${Math.floor(sec / 60)}분 ${sec % 60}초`);
+
+/** 정답자·오답자 풀이 시간 차이로 본 문항 해석 */
+function timeInsight(stat: QuestionStat) {
+  const { avgTimeCorrectSec: ok, avgTimeWrongSec: ng } = stat;
+  if (ok == null || ng == null) return null;
+  if (ng <= ok * 0.6) return "오답자가 훨씬 빨리 골랐어요 — 선지를 끝까지 읽지 않은 성급한 풀이가 많아요.";
+  if (ng >= ok * 1.4) return "오답자가 더 오래 고민했어요 — 개념이 헷갈리는 문항이에요.";
+  return null;
+}
+
+function TimeSection({ analysis, timeLimitMin }: { analysis: AssignmentReport["analysis"]; timeLimitMin: number | null }) {
+  const timed = analysis.questionStats.filter((qs) => qs.avgTimeSec != null);
+  if (!timed.length) return null;
+  const slowIds = new Set(analysis.timing.slowest.map((qs) => qs.question.id));
+  return (
+    <section className="rounded-2xl border bg-white p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 font-extrabold">
+        <Timer className="size-5 text-primary" /> 시간 분석
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        문항별 풀이 시간 = 학생이 직전 문항에 답한 뒤 이 문항에 답하기까지 걸린 시간 (지문 읽는 시간은 지문의 첫 문항에 포함).
+        {timeLimitMin ? ` 제한 시간 ${timeLimitMin}분.` : ""}
+      </p>
+      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+        <div>
+          <h3 className="mb-3 text-sm font-bold text-slate-600">문항별 평균 풀이 시간</h3>
+          <ColumnChart
+            data={analysis.questionStats.map((qs) => ({
+              label: `${qs.question.number}번`,
+              value: qs.avgTimeSec ?? 0,
+              display: qs.avgTimeSec == null ? "-" : formatClock(qs.avgTimeSec),
+              emphasis: slowIds.has(qs.question.id) ? ("warn" as const) : undefined,
+              hint: `${qs.question.number}번 · 평균 ${formatDuration(qs.avgTimeSec)} · 정답률 ${qs.correctRate}%`,
+            }))}
+          />
+          <p className="mt-2 text-xs text-muted-foreground">주황색은 평균 풀이 시간이 가장 긴 3문항이에요.</p>
+        </div>
+        <div className="space-y-5">
+          <div>
+            <h3 className="mb-2 text-sm font-bold text-slate-600">지문(세트)별 평균 소요 시간</h3>
+            <ul className="space-y-1.5">
+              {analysis.timing.bySection
+                .filter((sec) => sec.avgSec != null)
+                .map((sec, i) => (
+                  <li key={i} className="flex items-center justify-between gap-3 rounded-lg bg-surface px-3 py-2 text-sm">
+                    <span className="min-w-0 truncate font-semibold" title={sec.title}>
+                      {sec.title} <span className="font-normal text-muted-foreground">· {sec.questionCount}문항</span>
+                    </span>
+                    <b className="shrink-0 tabular-nums">{formatClock(sec.avgSec!)}</b>
+                  </li>
+                ))}
+            </ul>
+          </div>
+          <div>
+            <h3 className="mb-2 text-sm font-bold text-slate-600">가장 오래 걸린 문항</h3>
+            <ul className="space-y-2">
+              {analysis.timing.slowest.map((qs) => {
+                const insight = timeInsight(qs);
+                return (
+                  <li key={qs.question.id} className="rounded-lg border px-3 py-2.5 text-sm">
+                    <p className="flex items-baseline justify-between gap-2">
+                      <span className="min-w-0 truncate font-semibold">
+                        {qs.question.number}번 <span className="font-normal text-muted-foreground">· {qs.question.category}</span>
+                      </span>
+                      <b className="shrink-0 tabular-nums">{formatClock(qs.avgTimeSec!)}</b>
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                      정답자 {qs.avgTimeCorrectSec == null ? "-" : formatClock(qs.avgTimeCorrectSec)} · 오답자{" "}
+                      {qs.avgTimeWrongSec == null ? "-" : formatClock(qs.avgTimeWrongSec)} · 정답률 {qs.correctRate}%
+                    </p>
+                    {insight && <p className="mt-1 text-xs text-amber-800">{insight}</p>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /** 가장 많이 고른 오답 (매력적 오답) */
 function topDistractor(stat: QuestionStat) {
@@ -81,6 +161,9 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
             </Badge>
             <Badge variant={assignment.status === "open" ? "emerald" : "muted"}>{assignment.status === "open" ? "응시 중" : "마감"}</Badge>
             <Badge variant="muted">{assignment.revealAnswers ? "제출 후 정답 공개" : "정답 비공개"}</Badge>
+            <Badge variant="muted">
+              <Timer /> {assignment.timeLimitMin ? `제한 ${assignment.timeLimitMin}분` : "시간 제한 없음"}
+            </Badge>
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">{assignment.title}</h1>
           <p className="text-sm text-muted-foreground">
@@ -98,12 +181,23 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
         <AssignmentControls id={assignment.id} status={assignment.status} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatTile label="응시" value={`${analysis.submitted}/${analysis.rosterSize}`} unit="명" hint={`응시율 ${rate}%`} />
         <StatTile label="평균" value={analysis.mean} unit="점" hint={`표준편차 ${analysis.sd}`} />
         <StatTile label="중앙값" value={analysis.median} unit="점" />
         <StatTile label="최고" value={analysis.max} unit="점" />
         <StatTile label="최저" value={analysis.min} unit="점" />
+        <StatTile
+          label="평균 응시 시간"
+          value={analysis.timing.avgDurationSec == null ? "-" : formatClock(analysis.timing.avgDurationSec)}
+          hint={
+            assignment.timeLimitMin
+              ? `제한 ${assignment.timeLimitMin}분 · 초과 ${submissions.filter((s) => s.overtime).length}명`
+              : analysis.timing.medianDurationSec != null
+                ? `중앙값 ${formatClock(analysis.timing.medianDurationSec)}`
+                : undefined
+          }
+        />
       </div>
 
       {analysis.submitted === 0 ? (
@@ -167,16 +261,19 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
             </section>
           )}
 
+          <TimeSection analysis={analysis} timeLimitMin={assignment.timeLimitMin} />
+
           <section className="rounded-2xl border bg-white">
-            <h2 className="border-b p-5 font-extrabold">문항별 정답률 · 응답 분포</h2>
+            <h2 className="border-b p-5 font-extrabold">문항별 정답률 · 응답 분포 · 풀이 시간</h2>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] text-sm">
+              <table className="w-full min-w-[880px] text-sm">
                 <thead className="bg-muted/60 text-left text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2.5 font-bold">번호</th>
                     <th className="px-4 py-2.5 font-bold">문항</th>
                     <th className="px-4 py-2.5 font-bold">정답</th>
                     <th className="w-44 px-4 py-2.5 font-bold">정답률</th>
+                    <th className="px-4 py-2.5 font-bold whitespace-nowrap">평균 시간</th>
                     <th className="px-4 py-2.5 font-bold">선택 분포 (초록: 정답 · 주황: 최다 오답)</th>
                   </tr>
                 </thead>
@@ -203,6 +300,15 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
                             </div>
                             <span className="w-12 text-right font-bold tabular-nums">{stat.correctRate}%</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="font-bold tabular-nums">{stat.avgTimeSec == null ? "-" : formatClock(stat.avgTimeSec)}</p>
+                          {stat.avgTimeSec != null && (
+                            <p className="text-[11px] text-muted-foreground tabular-nums">
+                              정답 {stat.avgTimeCorrectSec == null ? "-" : formatClock(stat.avgTimeCorrectSec)} · 오답{" "}
+                              {stat.avgTimeWrongSec == null ? "-" : formatClock(stat.avgTimeWrongSec)}
+                            </p>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <ChoiceDistribution stat={stat} />
@@ -231,7 +337,7 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
                     <th className="px-5 py-2.5 font-semibold">이름</th>
                     <th className="px-5 py-2.5 text-right font-semibold">점수</th>
                     <th className="px-5 py-2.5 text-right font-semibold">맞힌 문항</th>
-                    <th className="px-5 py-2.5 text-right font-semibold">소요 시간</th>
+                    <th className="px-5 py-2.5 text-right font-semibold">응시 시간</th>
                     <th className="px-5 py-2.5 text-right font-semibold">제출</th>
                   </tr>
                 </thead>
@@ -244,7 +350,14 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
                       <td className="px-5 py-2.5 text-right tabular-nums">
                         {s.correctCount}/{s.total}
                       </td>
-                      <td className="px-5 py-2.5 text-right whitespace-nowrap text-muted-foreground">{formatDuration(s.durationSec)}</td>
+                      <td className="px-5 py-2.5 text-right whitespace-nowrap text-muted-foreground">
+                        {formatDuration(s.durationSec)}
+                        {s.overtime && (
+                          <Badge variant="amber" className="ml-1.5">
+                            시간 초과
+                          </Badge>
+                        )}
+                      </td>
                       <td className="px-5 py-2.5 text-right whitespace-nowrap text-muted-foreground">{formatDateTime(s.submittedAt)}</td>
                     </tr>
                   ))}

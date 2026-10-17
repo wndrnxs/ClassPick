@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Send } from "lucide-react";
+import { Send, Timer } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -24,14 +24,29 @@ import { api } from "@/lib/api-client";
 
 type ClassItem = { id: string; name: string; studentCount: number };
 
+const LIMIT_PRESETS = [5, 10, 15, 20, 30, 40, 50, 60, 80];
+
 /** 자료 → 반 학생들에게 시험으로 배포 (5지선다·OX만 자동 채점) */
-export function DistributeDialog({ materialId, defaultTitle, gradableCount }: { materialId: string; defaultTitle: string; gradableCount: number }) {
+export function DistributeDialog({
+  materialId,
+  defaultTitle,
+  gradableCount,
+  recommendedMinutes = null,
+}: {
+  materialId: string;
+  defaultTitle: string;
+  gradableCount: number;
+  recommendedMinutes?: number | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [classes, setClasses] = useState<ClassItem[] | null>(null);
   const [classId, setClassId] = useState("");
   const [title, setTitle] = useState(defaultTitle);
   const [reveal, setReveal] = useState(true);
+  // "" = 제한 없음
+  const [limit, setLimit] = useState(recommendedMinutes ? String(recommendedMinutes) : "");
+  const limitOptions = [...new Set([...LIMIT_PRESETS, ...(recommendedMinutes ? [recommendedMinutes] : [])])].sort((a, b) => a - b);
   const [pending, setPending] = useState(false);
 
   async function load() {
@@ -49,7 +64,7 @@ export function DistributeDialog({ materialId, defaultTitle, gradableCount }: { 
     try {
       const res = await api<{ assignment: { id: string } }>("/api/assignments", {
         method: "POST",
-        json: { materialId, classId, title, revealAnswers: reveal },
+        json: { materialId, classId, title, revealAnswers: reveal, timeLimitMin: limit ? Number(limit) : null },
       });
       toast.success("학생들에게 시험을 배포했어요.");
       setOpen(false);
@@ -106,6 +121,23 @@ export function DistributeDialog({ materialId, defaultTitle, gradableCount }: { 
             <div className="space-y-2">
               <Label htmlFor="assign-title">시험 제목</Label>
               <Input id="assign-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="assign-limit" className="flex items-center gap-1.5">
+                <Timer className="size-4 text-primary" /> 제한 시간
+              </Label>
+              <NativeSelect id="assign-limit" value={limit} onChange={(e) => setLimit(e.target.value)}>
+                <option value="">제한 없음 (시간만 기록)</option>
+                {limitOptions.map((m) => (
+                  <option key={m} value={m}>
+                    {m}분{m === recommendedMinutes ? " — 권장" : ""}
+                  </option>
+                ))}
+              </NativeSelect>
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {recommendedMinutes ? `권장 ${recommendedMinutes}분은 수능 국어 페이스(80분·45문항, 5지선다 1문항 약 1분 47초) 기준이에요. ` : ""}
+                시간이 다 되면 자동으로 제출되고, 제한 시간과 상관없이 전체 응시 시간과 문항별 풀이 시간은 항상 기록돼요.
+              </p>
             </div>
             <label className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-muted/60 p-3 text-sm">
               <Checkbox checked={reveal} onCheckedChange={(v) => setReveal(v === true)} className="mt-0.5" aria-label="정답 공개" />

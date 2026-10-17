@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { BookOpenCheck, ChevronRight, Sparkles, Target, TrendingUp } from "lucide-react";
+import { BookOpenCheck, ChevronRight, Hourglass, Sparkles, Target, Timer, TrendingUp, Zap } from "lucide-react";
 
 import { PageHeader } from "@/components/app/page-header";
 import { BarList, ColumnChart, StatTile } from "@/components/classroom/charts";
@@ -9,7 +9,8 @@ import { QuestionReview } from "@/components/student/question-review";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SKILL_TIPS, type Rate } from "@/lib/assessment";
+import { SKILL_TIPS, SUNEUNG_PACE_SEC, type Rate } from "@/lib/assessment";
+import { formatClock, formatDuration } from "@/lib/utils";
 import { requireStudent } from "@/server/auth/dal";
 import { getStudentReport } from "@/server/services/classroom";
 
@@ -33,6 +34,108 @@ function Panel({ title, icon, children, className }: { title: string; icon?: Rea
         {title}
       </h2>
       {children}
+    </section>
+  );
+}
+
+const PACE_FLAG = { slow: "오래 고민했지만 틀림", fast: "빨리 풀다 틀림" } as const;
+
+function TimeManagement({ r }: { r: Awaited<ReturnType<typeof getStudentReport>> }) {
+  const t = r.timing;
+  if (!t.timedCount) return null;
+  const paceHint =
+    t.paceDiffSec == null
+      ? undefined
+      : Math.abs(t.paceDiffSec) < 5
+        ? "수능 페이스와 비슷해요"
+        : `수능 페이스(${formatClock(SUNEUNG_PACE_SEC)})보다 ${Math.abs(t.paceDiffSec)}초 ${t.paceDiffSec > 0 ? "느려요" : "빨라요"}`;
+  const maxSkill = Math.max(SUNEUNG_PACE_SEC, ...t.bySkill.map((s) => s.avgSec ?? 0));
+  const timedTrend = r.trend.filter((x) => x.durationSec != null);
+  return (
+    <section className="rounded-2xl border bg-white p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-lg font-extrabold">
+        <Timer className="size-5 text-primary" /> 시간 관리
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        수능 국어는 80분 동안 45문항, 5지선다 한 문항에 평균 약 {formatDuration(SUNEUNG_PACE_SEC)}이에요. 지문 읽는 시간은 그 지문의 첫 문항에 포함돼요.
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="5지선다 문항당 평균" value={t.avgMcqSec == null ? "-" : formatClock(t.avgMcqSec)} hint={paceHint} />
+        <StatTile label="OX 문항당 평균" value={t.avgOxSec == null ? "-" : formatClock(t.avgOxSec)} />
+        <StatTile label="오래 고민했지만 틀림" value={t.slowWrong} unit="문항" hint="평소보다 1.5배 이상 걸린 오답" />
+        <StatTile label="빨리 풀다 틀림" value={t.fastWrong} unit="문항" hint="평소의 절반도 안 걸린 오답" />
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div>
+          <h3 className="mb-3 text-sm font-bold text-slate-600">영역별 5지선다 평균 풀이 시간</h3>
+          <BarList
+            max={maxSkill}
+            rows={t.bySkill.map((s) => ({
+              label: s.label,
+              value: s.avgSec ?? 0,
+              display: formatClock(s.avgSec ?? 0),
+              sub: `정답률 ${s.rate}%`,
+              emphasis: (s.avgSec ?? 0) > SUNEUNG_PACE_SEC ? ("warn" as const) : undefined,
+              tag: "느림",
+            }))}
+            empty="5지선다 풀이 기록이 아직 없어요."
+          />
+          <p className="mt-2 text-xs text-muted-foreground">주황색은 수능 페이스보다 오래 걸린 영역이에요.</p>
+        </div>
+        <div>
+          <h3 className="mb-3 text-sm font-bold text-slate-600">시험별 응시 시간</h3>
+          {timedTrend.length ? (
+            <ul className="space-y-2">
+              {timedTrend.map((x, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3.5 py-2.5 text-sm">
+                  <span className="min-w-0 truncate font-semibold" title={x.title}>
+                    {x.title}
+                  </span>
+                  <span className="shrink-0 tabular-nums">
+                    <b>{formatDuration(x.durationSec)}</b>
+                    <span className="ml-1.5 text-xs text-muted-foreground">{x.score}점</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">기록이 없어요.</p>
+          )}
+        </div>
+      </div>
+
+      {(t.slowWrong > 0 || t.fastWrong > 0 || (t.paceDiffSec ?? 0) > 15) && (
+        <ul className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+          {t.slowWrong > 0 && (
+            <li className="flex gap-3 rounded-xl border border-amber-200 bg-amber-soft/60 p-4 text-sm leading-relaxed text-slate-700">
+              <Hourglass className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <span>
+                <b className="text-slate-900">오래 고민하고도 틀린 문항 {t.slowWrong}개</b> — 시간을 많이 써도 답이 흔들렸다면 개념이나 지문 이해가 불확실하다는
+                신호예요. 아래 오답 노트에서 해설을 먼저 확인하세요.
+              </span>
+            </li>
+          )}
+          {t.fastWrong > 0 && (
+            <li className="flex gap-3 rounded-xl border border-amber-200 bg-amber-soft/60 p-4 text-sm leading-relaxed text-slate-700">
+              <Zap className="mt-0.5 size-5 shrink-0 text-amber-600" />
+              <span>
+                <b className="text-slate-900">빨리 풀다 틀린 문항 {t.fastWrong}개</b> — 선지를 끝까지 읽지 않고 고른 실수일 수 있어요. 발문의 &lsquo;적절하지
+                않은&rsquo;과 선지의 범위 표현(항상·모두·오직)을 한 번 더 확인하세요.
+              </span>
+            </li>
+          )}
+          {(t.paceDiffSec ?? 0) > 15 && (
+            <li className="flex gap-3 rounded-xl border bg-surface p-4 text-sm leading-relaxed text-slate-700">
+              <Timer className="mt-0.5 size-5 shrink-0 text-primary" />
+              <span>
+                <b className="text-slate-900">5지선다 풀이가 수능 페이스보다 평균 {t.paceDiffSec}초 느려요.</b> 지문을 읽을 때 문단마다 핵심어에 표시해 두면, 문제를
+                풀 때 다시 찾아 읽는 시간을 줄일 수 있어요.
+              </span>
+            </li>
+          )}
+        </ul>
+      )}
     </section>
   );
 }
@@ -151,6 +254,8 @@ async function Report() {
         </Panel>
       </div>
 
+      <TimeManagement r={r} />
+
       <details className="group rounded-2xl border bg-white">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-5 font-extrabold [&::-webkit-details-marker]:hidden">
           세부 유형별 정답률
@@ -182,7 +287,15 @@ async function Report() {
                   </Link>
                 </div>
                 {g.notes.map((n) => (
-                  <QuestionReview key={n.question.id} q={n.question} myAnswer={n.myAnswer} correct={false} reveal={n.revealAnswers} />
+                  <QuestionReview
+                    key={n.question.id}
+                    q={n.question}
+                    myAnswer={n.myAnswer}
+                    correct={false}
+                    reveal={n.revealAnswers}
+                    timeSec={n.timeSec}
+                    timeFlag={n.pace ? PACE_FLAG[n.pace] : null}
+                  />
                 ))}
               </div>
             ))}

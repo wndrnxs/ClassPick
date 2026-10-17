@@ -9,7 +9,7 @@ import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 
-import { grade, type AnswerSheet, type AssessmentSnapshot } from "@/lib/assessment";
+import { grade, recommendedTimeLimitMin, type AnswerSheet, type AssessmentSnapshot, type Timings } from "@/lib/assessment";
 import { hashPassword } from "@/server/auth/password";
 import { getDb, schema } from "@/server/db/client";
 import { createAssignment, createClass } from "./classroom";
@@ -55,6 +55,33 @@ function simulateAnswers(snapshot: AssessmentSnapshot, ability: number, seed: st
   return answers;
 }
 
+const BASE_MCQ_SEC = { 상: 125, 중: 85, 하: 55 } as const;
+
+/**
+ * 문항별 풀이 시간 시뮬레이션 (초).
+ * 각 지문의 첫 문항에는 지문 읽는 시간이 더해지고, 실력이 낮을수록 오래 걸립니다.
+ * 틀린 문항은 '빨리 풀다 틀림'과 '오래 고민하고 틀림'이 섞이도록 합니다.
+ */
+function simulateTimings(snapshot: AssessmentSnapshot, answers: AnswerSheet, ability: number, seed: string): Timings {
+  const rand = rng(`${seed}:time`);
+  const noise = () => 0.7 + rand() * 0.6;
+  const timings: Timings = {};
+  const firstOfSection = new Set<number>();
+  for (const q of snapshot.questions) {
+    let t: number;
+    if (q.kind === "mcq") t = BASE_MCQ_SEC[q.difficulty] * (1.3 - ability * 0.6) * noise();
+    else t = 14 * (1.2 - ability * 0.4) * noise();
+    if (answers[q.id] !== q.answer) t *= rand() < 0.5 ? 0.45 : 1.45;
+    if (!firstOfSection.has(q.sectionIndex)) {
+      firstOfSection.add(q.sectionIndex);
+      const chars = snapshot.sections[q.sectionIndex]?.text.length ?? 0;
+      t += (chars / (5 + ability * 6)) * noise();
+    }
+    timings[q.id] = Math.max(3, Math.round(t));
+  }
+  return timings;
+}
+
 async function createDemoStudent(name: string, school: string) {
   const id = randomUUID();
   await (await getDb())
@@ -77,13 +104,18 @@ async function addMember(classId: string, studentId: string) {
   await (await getDb()).insert(schema.classMembers).values({ classId, studentId, joinedAt: new Date() }).onConflictDoNothing().run();
 }
 
-async function insertSubmission(assignmentId: string, studentId: string, ability: number, minutesAgo: number) {
+async function insertSubmission(assignmentId: string, studentId: string, ability: number, minutesAgo: number, overtime = false) {
   const db = await getDb();
   const a = await db.select().from(schema.assignments).where(eq(schema.assignments.id, assignmentId)).get();
   if (!a) return;
   const snapshot = a.snapshot as unknown as AssessmentSnapshot;
   const answers = simulateAnswers(snapshot, ability, `${assignmentId}:${studentId}`);
   const result = grade(snapshot, answers);
+  const timings = simulateTimings(snapshot, answers, ability, `${assignmentId}:${studentId}`);
+  const solving = Object.values(timings).reduce((a, b) => a + b, 0);
+  // 마지막 문항 이후 검토 시간 20~90초. 시간 초과 사례는 제한 시간을 넘겨 제출한 것으로 만듭니다.
+  const durationSec = overtime && a.timeLimitMin ? a.timeLimitMin * 60 + 95 : solving + 20 + Math.round(rng(`${studentId}:review`)() * 70);
+  const submittedAt = new Date(Date.now() - minutesAgo * 60_000);
   await db
     .insert(schema.submissions)
     .values({
@@ -94,10 +126,31 @@ async function insertSubmission(assignmentId: string, studentId: string, ability
       correctCount: result.correctCount,
       total: result.total,
       score: result.score,
-      durationSec: 240 + Math.round((1 - ability) * 600),
-      submittedAt: new Date(Date.now() - minutesAgo * 60_000),
+      durationSec,
+      timings,
+      submittedAt,
     })
     .run();
+  await db
+    .insert(schema.examStarts)
+    .values({ assignmentId, studentId, startedAt: new Date(submittedAt.getTime() - durationSec * 1000) })
+    .onConflictDoNothing()
+    .run();
+}
+
+/** 체험용 시험 배포: 수능 페이스 기준 권장 제한 시간을 붙입니다. */
+async function distributeDemo(teacherId: string, materialId: string, classId: string, title: string) {
+  const { id } = await createAssignment(teacherId, { materialId, classId, title, revealAnswers: true });
+  const db = await getDb();
+  const a = await db.select().from(schema.assignments).where(eq(schema.assignments.id, id)).get();
+  if (a) {
+    await db
+      .update(schema.assignments)
+      .set({ timeLimitMin: recommendedTimeLimitMin(a.snapshot as unknown as AssessmentSnapshot) })
+      .where(eq(schema.assignments.id, id))
+      .run();
+  }
+  return id;
 }
 
 /** 체험 선생님: 학생 12명이 있는 반과, 응시가 끝난 시험 2개를 만듭니다. */
@@ -116,9 +169,10 @@ export async function seedTeacherClassroom(teacherId: string, materialIds: Recor
   for (const plan of plans) {
     const materialId = materialIds[plan.slug];
     if (!materialId) continue;
-    const { id } = await createAssignment(teacherId, { materialId, classId: cls.id, title: plan.title, revealAnswers: true });
+    const id = await distributeDemo(teacherId, materialId, cls.id, plan.title);
     for (const [i, s] of students.slice(0, plan.submitters).entries()) {
-      await insertSubmission(id, s.id, s.ability, plan.ago - i * 7);
+      // 마지막 제출자 한 명은 제한 시간을 넘겨 제출한 사례
+      await insertSubmission(id, s.id, s.ability, plan.ago - i * 7, i === plan.submitters - 1);
     }
   }
   return cls;
@@ -139,7 +193,7 @@ export async function seedStudentClassroom(studentId: string, teacherId: string,
   for (const plan of plans) {
     const materialId = materialIds[plan.slug];
     if (!materialId) continue;
-    const { id } = await createAssignment(teacherId, { materialId, classId: cls.id, title: plan.title, revealAnswers: true });
+    const id = await distributeDemo(teacherId, materialId, cls.id, plan.title);
     if (plan.ability !== null) await insertSubmission(id, studentId, plan.ability, plan.ago);
   }
   return cls;

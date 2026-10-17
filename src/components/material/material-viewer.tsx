@@ -111,6 +111,7 @@ export function MaterialViewer({
   isSample = false,
   initialTab,
   gradableCount = 0,
+  recommendedMinutes = null,
 }: {
   material: MaterialDTO;
   targets: ExportTargets;
@@ -118,6 +119,8 @@ export function MaterialViewer({
   initialTab?: string;
   /** 0보다 크면 '학생에게 배포' 버튼을 보여 줍니다 (5지선다·OX 문항 수) */
   gradableCount?: number;
+  /** 배포 시 제안할 제한 시간(분, 수능 페이스 기준) */
+  recommendedMinutes?: number | null;
 }) {
   const [showAnswers, setShowAnswers] = useState(true);
   const hasAnswers = material.kind === "passage" || material.kind === "exam_set";
@@ -155,7 +158,12 @@ export function MaterialViewer({
             </Button>
           )}
           {gradableCount > 0 && !isSample && (
-            <DistributeDialog materialId={material.id} defaultTitle={material.title} gradableCount={gradableCount} />
+            <DistributeDialog
+              materialId={material.id}
+              defaultTitle={material.title}
+              gradableCount={gradableCount}
+              recommendedMinutes={recommendedMinutes}
+            />
           )}
           <ExportMenu {...targets} />
           {!isSample && <DeleteButton id={material.id} />}

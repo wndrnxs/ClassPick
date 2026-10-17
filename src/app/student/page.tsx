@@ -9,7 +9,7 @@ import { JoinClassForm } from "@/components/student/join-class-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate } from "@/lib/utils";
+import { formatClock, formatDate, formatDuration } from "@/lib/utils";
 import { requireStudent } from "@/server/auth/dal";
 import { listStudentAssignments, listStudentClasses } from "@/server/services/classroom";
 
@@ -34,16 +34,23 @@ function TodoCard({ a }: { a: StudentAssignment }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="soft">{a.className}</Badge>
+          {a.inProgress && (
+            <Badge variant="amber">
+              응시 중{a.inProgress.remainingSec != null ? ` · 남은 시간 ${formatClock(a.inProgress.remainingSec)}` : ""}
+            </Badge>
+          )}
           <span className="text-xs text-muted-foreground">{formatDate(a.createdAt)} 배포</span>
         </div>
         <p className="mt-1.5 truncate text-lg font-extrabold" title={a.title}>
           {a.title}
         </p>
-        <p className="text-sm text-muted-foreground">{a.questionCount}문항 · 자동 채점</p>
+        <p className="text-sm text-muted-foreground">
+          {a.questionCount}문항 · {a.timeLimitMin ? `제한 시간 ${a.timeLimitMin}분` : "시간 제한 없음"} · 자동 채점
+        </p>
       </div>
       <Button asChild className="shrink-0">
         <Link href={`/student/exams/${a.id}`}>
-          시험 보기 <ChevronRight />
+          {a.inProgress ? "이어서 풀기" : "시험 보기"} <ChevronRight />
         </Link>
       </Button>
     </li>
@@ -103,6 +110,7 @@ async function AssignmentBoard() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {a.className} · {formatDate(a.submission!.submittedAt)} 제출 · {a.submission!.correctCount}/{a.submission!.total} 정답
+                      {a.submission!.durationSec != null && ` · ${formatDuration(a.submission!.durationSec)}`}
                     </p>
                   </div>
                   <span className={`text-2xl font-black tabular-nums ${scoreTone(a.submission!.score)}`}>

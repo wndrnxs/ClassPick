@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { MaterialViewer } from "@/components/material/material-viewer";
-import { countGradable } from "@/lib/assessment";
+import { buildSnapshot, countGradable, recommendedTimeLimitMin } from "@/lib/assessment";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/server/auth/dal";
 import { HttpError } from "@/server/http";
@@ -23,6 +23,7 @@ async function Viewer({ params }: { params: PageProps<"/app/materials/[id]">["pa
     if (e instanceof HttpError && e.status === 404) notFound();
     throw e;
   }
+  const gradableCount = countGradable(material);
   return (
     <MaterialViewer
       material={material}
@@ -31,7 +32,8 @@ async function Viewer({ params }: { params: PageProps<"/app/materials/[id]">["pa
         printBase: `/print/materials/${id}`,
         hasAudience: material.kind === "passage" || material.kind === "exam_set",
       }}
-      gradableCount={countGradable(material)}
+      gradableCount={gradableCount}
+      recommendedMinutes={gradableCount > 0 ? recommendedTimeLimitMin(buildSnapshot(material)) : null}
     />
   );
 }

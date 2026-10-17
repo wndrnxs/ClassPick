@@ -309,9 +309,13 @@ export const CreateAssignmentInput = z.object({
   classId: z.string().min(1, "배포할 반을 선택해 주세요."),
   title: z.string().trim().min(1, "시험 제목을 입력해 주세요.").max(120),
   revealAnswers: z.boolean().default(true),
+  /** 제한 시간(분). null 이면 제한 없음 */
+  timeLimitMin: z.number().int().min(1, "제한 시간은 1분 이상이어야 합니다.").max(300, "제한 시간은 300분 이하로 설정해 주세요.").nullable().default(null),
 });
 
+/** 답안 제출 — 시간 값은 서버에서 다시 정리하므로, 형식이 조금 어긋나도 답안 제출 자체는 실패하지 않게 둡니다. */
 export const SubmitAnswersInput = z.object({
   answers: z.record(z.string(), z.union([z.number().int(), z.boolean()])),
-  durationSec: z.number().int().min(0).max(60 * 60 * 6).nullable().default(null),
+  durationSec: z.number().nullable().catch(null).default(null),
+  timings: z.record(z.string(), z.unknown()).catch({}).default({}),
 });

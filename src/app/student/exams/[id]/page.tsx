@@ -2,22 +2,115 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { ArrowLeft, EyeOff, Lock, Target } from "lucide-react";
+import { ArrowLeft, EyeOff, Lock, Target, Timer } from "lucide-react";
 
+import { ColumnChart, StatTile } from "@/components/classroom/charts";
 import { PassageView } from "@/components/material/sections";
 import { ExamTaker } from "@/components/student/exam-taker";
 import { QuestionReview } from "@/components/student/question-review";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn, formatDateTime } from "@/lib/utils";
+import { SUNEUNG_PACE_SEC } from "@/lib/assessment";
+import { cn, formatClock, formatDateTime, formatDuration } from "@/lib/utils";
 import { requireStudent } from "@/server/auth/dal";
 import { HttpError } from "@/server/http";
 import { getStudentAssignment, type StudentAssignmentView } from "@/server/services/classroom";
 
 export const metadata: Metadata = { title: "시험" };
 
-const formatDuration = (sec: number | null) => (sec == null ? "-" : `${Math.floor(sec / 60)}분 ${sec % 60}초`);
+type DoneView = Extract<StudentAssignmentView, { state: "done" }>;
+
+/** 반 평균보다 1.5배 이상(15초 이상 차이) 오래 걸린 문항 */
+const isSlow = (mine: number | undefined, avg: number | undefined) => mine != null && avg != null && mine >= avg * 1.5 && mine - avg >= 15;
+
+function TimeAnalysis({ view }: { view: DoneView }) {
+  const { result, exam } = view;
+  const times = exam.questions.map((q) => result.timings[q.id]).filter((t): t is number => t != null);
+  if (!times.length && result.durationSec == null) return null;
+  const solving = times.reduce((a, b) => a + b, 0);
+  const mcqTimes = exam.questions.filter((q) => q.kind === "mcq" && result.timings[q.id] != null).map((q) => result.timings[q.id]);
+  const avgMcq = mcqTimes.length ? Math.round(mcqTimes.reduce((a, b) => a + b, 0) / mcqTimes.length) : null;
+  const hasClass = Object.keys(result.classAvgTimes).length > 0;
+  const sections = exam.sections
+    .map((sec, i) => {
+      const qs = exam.questions.filter((q) => q.sectionIndex === i);
+      const mine = qs.reduce((t, q) => t + (result.timings[q.id] ?? 0), 0);
+      const avg = qs.reduce((t, q) => t + (result.classAvgTimes[q.id] ?? 0), 0);
+      return { title: sec.title, count: qs.length, mine, avg };
+    })
+    .filter((s) => s.count > 0);
+
+  return (
+    <section className="mt-6 rounded-2xl border bg-white p-5 sm:p-6">
+      <h2 className="flex items-center gap-2 text-lg font-extrabold">
+        <Timer className="size-5 text-primary" /> 시간 분석
+      </h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        문항별 풀이 시간은 직전 문항에 답한 뒤 이 문항에 답하기까지 걸린 시간이에요. 지문을 읽는 시간은 그 지문의 첫 문항에 포함돼요.
+      </p>
+      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile
+          label="전체 응시 시간"
+          value={result.durationSec == null ? "-" : formatClock(result.durationSec)}
+          hint={view.timeLimitMin ? `제한 ${view.timeLimitMin}분${result.overtime ? " · 시간 초과" : ""}` : "제한 시간 없음"}
+        />
+        <StatTile label="문항 풀이" value={formatClock(solving)} hint={`${times.length}문항 합계`} />
+        <StatTile
+          label="검토·기타"
+          value={result.durationSec == null ? "-" : formatClock(Math.max(0, result.durationSec - solving))}
+          hint="마지막 답 이후 제출까지 등"
+        />
+        <StatTile
+          label="5지선다 문항당"
+          value={avgMcq == null ? "-" : formatClock(avgMcq)}
+          hint={avgMcq == null ? undefined : `수능 페이스 ${formatClock(SUNEUNG_PACE_SEC)} ${avgMcq > SUNEUNG_PACE_SEC ? "보다 느림" : "이내"}`}
+        />
+      </div>
+
+      {times.length > 0 && (
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <div>
+            <h3 className="mb-3 text-sm font-bold text-slate-600">문항별 풀이 시간</h3>
+            <ColumnChart
+              data={exam.questions.map((q) => {
+                const recorded = result.timings[q.id];
+                const mine = recorded ?? 0;
+                const avg = result.classAvgTimes[q.id];
+                return {
+                  label: `${q.number}번`,
+                  value: mine,
+                  display: recorded == null ? "-" : formatClock(mine),
+                  marker: avg,
+                  emphasis: isSlow(mine, avg) ? ("warn" as const) : undefined,
+                  hint: `${q.number}번 · ${result.correctness[q.id] ? "정답" : "오답"} · ${recorded == null ? "기록 없음" : formatDuration(mine)}${avg != null ? ` (반 평균 ${formatDuration(avg)})` : ""}`,
+                };
+              })}
+              markerLabel="반 평균"
+            />
+            {hasClass && <p className="mt-1 text-xs text-muted-foreground">주황색 막대는 반 평균보다 1.5배 이상 오래 걸린 문항이에요.</p>}
+          </div>
+          <div>
+            <h3 className="mb-3 text-sm font-bold text-slate-600">지문(세트)별 소요 시간</h3>
+            <ul className="space-y-2">
+              {sections.map((sec, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 rounded-xl bg-surface px-3.5 py-2.5 text-sm">
+                  <span className="min-w-0 truncate font-semibold" title={sec.title}>
+                    {sec.title} <span className="font-normal text-muted-foreground">· {sec.count}문항</span>
+                  </span>
+                  <span className="shrink-0 text-right tabular-nums">
+                    <b>{formatClock(sec.mine)}</b>
+                    {hasClass && <span className="ml-1.5 text-xs text-muted-foreground">반 평균 {formatClock(sec.avg)}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
 
 function BackLink() {
   return (
@@ -27,7 +120,7 @@ function BackLink() {
   );
 }
 
-function ExamResult({ view }: { view: Extract<StudentAssignmentView, { state: "done" }> }) {
+function ExamResult({ view }: { view: DoneView }) {
   const { result, exam } = view;
   const tone = result.score >= 80 ? "text-emerald-600" : result.score >= 60 ? "text-primary" : "text-amber-600";
   return (
@@ -39,8 +132,14 @@ function ExamResult({ view }: { view: Extract<StudentAssignmentView, { state: "d
             <Badge variant="soft">{view.className}</Badge>
             <h1 className="mt-2 text-xl font-extrabold tracking-tight sm:text-2xl">{view.title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {formatDateTime(result.submittedAt)} 제출 · 소요 시간 {formatDuration(result.durationSec)}
+              {formatDateTime(result.submittedAt)} 제출 · 응시 시간 {formatDuration(result.durationSec)}
+              {view.timeLimitMin ? ` / 제한 ${view.timeLimitMin}분` : ""}
             </p>
+            {result.overtime && (
+              <Badge variant="amber" className="mt-2">
+                제한 시간을 넘겨 제출됨
+              </Badge>
+            )}
           </div>
           <div className="flex items-end gap-5">
             <div>
@@ -84,6 +183,8 @@ function ExamResult({ view }: { view: Extract<StudentAssignmentView, { state: "d
         </div>
       </section>
 
+      <TimeAnalysis view={view} />
+
       {!view.revealAnswers && (
         <p className="mt-4 flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm text-muted-foreground">
           <EyeOff className="size-4 shrink-0" /> 선생님이 이 시험의 정답과 해설을 공개하지 않았어요. 문항별로 맞았는지만 확인할 수 있어요.
@@ -112,6 +213,9 @@ function ExamResult({ view }: { view: Extract<StudentAssignmentView, { state: "d
                   myAnswer={result.answers[q.id]}
                   correct={result.correctness[q.id] ?? false}
                   reveal={view.revealAnswers}
+                  timeSec={result.timings[q.id] ?? null}
+                  timeCompare={result.classAvgTimes[q.id] != null ? `반 평균 ${formatClock(result.classAvgTimes[q.id])}` : undefined}
+                  timeFlag={isSlow(result.timings[q.id], result.classAvgTimes[q.id]) ? "오래 걸림" : null}
                 />
               ))}
             </section>
@@ -153,7 +257,15 @@ async function StudentExam({ params }: { params: PageProps<"/student/exams/[id]"
   return (
     <>
       <BackLink />
-      <ExamTaker assignmentId={view.id} title={view.title} className={view.className} revealAnswers={view.revealAnswers} exam={view.exam} />
+      <ExamTaker
+        assignmentId={view.id}
+        title={view.title}
+        className={view.className}
+        revealAnswers={view.revealAnswers}
+        timeLimitMin={view.timeLimitMin}
+        started={view.started}
+        exam={view.exam}
+      />
     </>
   );
 }

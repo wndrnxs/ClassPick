@@ -10,13 +10,16 @@ import {
   buildSnapshot,
   countGradable,
   grade,
+  isOvertime,
   sanitizeAnswers,
+  sanitizeTimings,
   toPublicSnapshot,
   type AnswerSheet,
   type AssessmentQuestion,
   type AssessmentSnapshot,
   type StudentAttempt,
   type SubmissionLike,
+  type Timings,
 } from "@/lib/assessment";
 import { getDb, schema } from "@/server/db/client";
 import type { Assignment } from "@/server/db/schema";
@@ -30,6 +33,8 @@ function newJoinCode() {
 }
 
 const snapshotOf = (a: Assignment) => a.snapshot as unknown as AssessmentSnapshot;
+const timingsOf = (v: unknown) => (v && typeof v === "object" ? (v as Timings) : {});
+const MAX_DURATION_SEC = 60 * 60 * 24 * 7;
 
 /* ------------------------------------------------------------------ */
 /* 반 (교사)                                                            */
@@ -159,7 +164,7 @@ export async function removeStudent(teacherId: string, classId: string, studentI
 
 export async function createAssignment(
   teacherId: string,
-  input: { materialId: string; classId: string; title: string; revealAnswers: boolean },
+  input: { materialId: string; classId: string; title: string; revealAnswers: boolean; timeLimitMin?: number | null },
 ) {
   await findOwnedClass(teacherId, input.classId);
   const material = await getMaterial(teacherId, input.materialId);
@@ -190,6 +195,7 @@ export async function createAssignment(
       title: input.title,
       snapshot: snapshot as unknown as Record<string, unknown>,
       revealAnswers: input.revealAnswers,
+      timeLimitMin: input.timeLimitMin ?? null,
       createdAt: new Date(),
     })
     .run();
@@ -230,6 +236,7 @@ export async function listAssignments(teacherId: string) {
       status: a.status,
       createdAt: a.createdAt.toISOString(),
       questionCount: snapshotOf(a).questions.length,
+      timeLimitMin: a.timeLimitMin,
       rosterSize: members.filter((m) => m.classId === classId).length,
       submitted: mine.length,
       averageScore: mine.length ? Math.round(mine.reduce((s, x) => s + x.score, 0) / mine.length) : null,
@@ -265,6 +272,7 @@ export async function getAssignmentReport(teacherId: string, assignmentId: strin
     correctCount: s.correctCount,
     total: s.total,
     durationSec: s.durationSec,
+    timings: timingsOf(s.timings),
     submittedAt: s.submittedAt.toISOString(),
   }));
   const snapshot = snapshotOf(a);
@@ -275,12 +283,15 @@ export async function getAssignmentReport(teacherId: string, assignmentId: strin
       title: a.title,
       status: a.status,
       revealAnswers: a.revealAnswers,
+      timeLimitMin: a.timeLimitMin,
       createdAt: a.createdAt.toISOString(),
       materialId: a.materialId,
     },
     classInfo: { id: cls.id, name: cls.name, joinCode: cls.joinCode },
     snapshot,
-    submissions: subs.sort((x, y) => y.score - x.score),
+    submissions: subs
+      .sort((x, y) => y.score - x.score)
+      .map((x) => ({ ...x, overtime: isOvertime(x.durationSec, a.timeLimitMin) })),
     notSubmitted: roster.filter((r) => !submittedIds.has(r.id)).map((r) => ({ id: r.id, name: r.name })),
     analysis: analyzeAssignment(snapshot, subs, roster.length),
   };
@@ -333,23 +344,15 @@ export async function listStudentAssignments(studentId: string) {
     .where(eq(schema.classMembers.studentId, studentId))
     .orderBy(desc(schema.assignments.createdAt))
     .all();
-  const subs = rows.length
-    ? await db
-        .select()
-        .from(schema.submissions)
-        .where(
-          and(
-            eq(schema.submissions.studentId, studentId),
-            inArray(
-              schema.submissions.assignmentId,
-              rows.map((r) => r.a.id),
-            ),
-          ),
-        )
-        .all()
-    : [];
+  const ids = rows.map((r) => r.a.id);
+  const mineOnly = (table: typeof schema.submissions | typeof schema.examStarts) =>
+    and(eq(table.studentId, studentId), inArray(table.assignmentId, ids));
+  const subs = ids.length ? await db.select().from(schema.submissions).where(mineOnly(schema.submissions)).all() : [];
+  const starts = ids.length ? await db.select().from(schema.examStarts).where(mineOnly(schema.examStarts)).all() : [];
+  const now = Date.now();
   return rows.map(({ a, className }) => {
     const mine = subs.find((s) => s.assignmentId === a.id);
+    const start = starts.find((s) => s.assignmentId === a.id);
     return {
       id: a.id,
       title: a.title,
@@ -357,9 +360,24 @@ export async function listStudentAssignments(studentId: string) {
       status: a.status,
       createdAt: a.createdAt.toISOString(),
       questionCount: snapshotOf(a).questions.length,
-      submission: mine ? { score: mine.score, correctCount: mine.correctCount, total: mine.total, submittedAt: mine.submittedAt.toISOString() } : null,
+      timeLimitMin: a.timeLimitMin,
+      /** 시작했지만 아직 제출하지 않은 시험 */
+      inProgress: !mine && start ? { remainingSec: remainingOf(a.timeLimitMin, start.startedAt, now) } : null,
+      submission: mine
+        ? {
+            score: mine.score,
+            correctCount: mine.correctCount,
+            total: mine.total,
+            durationSec: mine.durationSec,
+            submittedAt: mine.submittedAt.toISOString(),
+          }
+        : null,
     };
   });
+}
+
+function remainingOf(timeLimitMin: number | null, startedAt: Date, now: number) {
+  return timeLimitMin == null ? null : Math.max(0, Math.round((startedAt.getTime() + timeLimitMin * 60_000 - now) / 1000));
 }
 
 async function findStudentAssignment(studentId: string, assignmentId: string) {
@@ -378,23 +396,53 @@ async function findStudentAssignment(studentId: string, assignmentId: string) {
   return row;
 }
 
-/**
- * 학생용 시험 데이터.
- * - 응시 전: 정답·해설이 제거된 문제지
- * - 제출 후: 정답 공개 설정이면 정답·해설 포함, 아니면 정오(맞음/틀림)만
- */
-export async function getStudentAssignment(studentId: string, assignmentId: string) {
-  const { a, className } = await findStudentAssignment(studentId, assignmentId);
-  const sub = await (await getDb())
+async function findSubmission(studentId: string, assignmentId: string) {
+  return (await getDb())
     .select()
     .from(schema.submissions)
     .where(and(eq(schema.submissions.assignmentId, assignmentId), eq(schema.submissions.studentId, studentId)))
     .get();
+}
+
+async function findStart(studentId: string, assignmentId: string) {
+  return (await getDb())
+    .select()
+    .from(schema.examStarts)
+    .where(and(eq(schema.examStarts.assignmentId, assignmentId), eq(schema.examStarts.studentId, studentId)))
+    .get();
+}
+
+/**
+ * 학생용 시험 데이터.
+ * - 응시 전: 정답·해설이 제거된 문제지 (+ 제한 시간, 이미 시작했다면 그 사실)
+ * - 제출 후: 정답 공개 설정이면 정답·해설 포함, 아니면 정오(맞음/틀림)만. 문항별 풀이 시간과 반 평균 풀이 시간 포함
+ */
+export async function getStudentAssignment(studentId: string, assignmentId: string) {
+  const { a, className } = await findStudentAssignment(studentId, assignmentId);
+  const sub = await findSubmission(studentId, assignmentId);
   const snapshot = snapshotOf(a);
-  const meta = { id: a.id, title: a.title, className, status: a.status, revealAnswers: a.revealAnswers };
-  if (!sub) return { ...meta, state: "todo" as const, exam: toPublicSnapshot(snapshot) };
+  const meta = { id: a.id, title: a.title, className, status: a.status, revealAnswers: a.revealAnswers, timeLimitMin: a.timeLimitMin };
+  if (!sub) {
+    const start = await findStart(studentId, assignmentId);
+    return { ...meta, state: "todo" as const, started: Boolean(start), exam: toPublicSnapshot(snapshot) };
+  }
   const answers = sub.answers as AnswerSheet;
   const graded = grade(snapshot, answers);
+  const timings = timingsOf(sub.timings);
+
+  // 반 평균 풀이 시간 (나 말고도 제출한 학생이 있을 때만)
+  const others = await (await getDb())
+    .select({ timings: schema.submissions.timings })
+    .from(schema.submissions)
+    .where(eq(schema.submissions.assignmentId, assignmentId))
+    .all();
+  const classAvgTimes: Timings = {};
+  if (others.length >= 2) {
+    for (const q of snapshot.questions) {
+      const xs = others.map((o) => timingsOf(o.timings)[q.id]).filter((t): t is number => t !== undefined);
+      if (xs.length) classAvgTimes[q.id] = Math.round(xs.reduce((x, y) => x + y, 0) / xs.length);
+    }
+  }
   return {
     ...meta,
     state: "done" as const,
@@ -405,44 +453,79 @@ export async function getStudentAssignment(studentId: string, assignmentId: stri
       correctCount: sub.correctCount,
       total: sub.total,
       durationSec: sub.durationSec,
+      overtime: isOvertime(sub.durationSec, a.timeLimitMin),
       submittedAt: sub.submittedAt.toISOString(),
       correctness: Object.fromEntries(graded.items.map((i) => [i.id, i.correct])),
+      timings,
+      classAvgTimes,
+      classSubmitted: others.length,
     },
+  };
+}
+
+/**
+ * 응시 시작 — 시작 시각을 서버에 한 번만 기록합니다(다시 호출하면 기존 기록 사용).
+ * 제한 시간이 있으면 남은 시간을, 없으면 경과 시간만 돌려줍니다.
+ */
+export async function startAssignment(studentId: string, assignmentId: string) {
+  const { a } = await findStudentAssignment(studentId, assignmentId);
+  if (await findSubmission(studentId, assignmentId)) throw new HttpError(409, "이미 제출한 시험입니다.");
+  if (a.status !== "open") throw new HttpError(409, "마감된 시험입니다.");
+  const db = await getDb();
+  await db.insert(schema.examStarts).values({ assignmentId, studentId, startedAt: new Date() }).onConflictDoNothing().run();
+  const start = (await findStart(studentId, assignmentId))!;
+  const now = Date.now();
+  return {
+    elapsedSec: Math.max(0, Math.round((now - start.startedAt.getTime()) / 1000)),
+    remainingSec: remainingOf(a.timeLimitMin, start.startedAt, now),
+    timeLimitMin: a.timeLimitMin,
   };
 }
 
 export async function submitAnswers(
   studentId: string,
   assignmentId: string,
-  input: { answers: Record<string, unknown>; durationSec: number | null },
+  input: { answers: Record<string, unknown>; durationSec: number | null; timings?: Record<string, unknown> },
 ) {
   const { a } = await findStudentAssignment(studentId, assignmentId);
+  if (await findSubmission(studentId, assignmentId)) throw new HttpError(409, "이미 제출한 시험입니다.");
   if (a.status !== "open") throw new HttpError(409, "마감된 시험입니다.");
   const snapshot = snapshotOf(a);
   const answers = sanitizeAnswers(snapshot, input.answers);
   const result = grade(snapshot, answers);
-  const db = await getDb();
-  const exists = await db
-    .select({ id: schema.submissions.id })
-    .from(schema.submissions)
-    .where(and(eq(schema.submissions.assignmentId, assignmentId), eq(schema.submissions.studentId, studentId)))
-    .get();
-  if (exists) throw new HttpError(409, "이미 제출한 시험입니다.");
-  await db
-    .insert(schema.submissions)
-    .values({
-      id: randomUUID(),
-      assignmentId,
-      studentId,
-      answers,
-      correctCount: result.correctCount,
-      total: result.total,
-      score: result.score,
-      durationSec: input.durationSec,
-      submittedAt: new Date(),
-    })
-    .run();
-  return { score: result.score, correctCount: result.correctCount, total: result.total };
+  // 응시 시간은 서버의 시작 기록으로 계산합니다. (기록이 없을 때만 클라이언트 값 사용)
+  const start = await findStart(studentId, assignmentId);
+  const now = new Date();
+  const clientDuration = input.durationSec != null && Number.isFinite(input.durationSec) ? Math.max(0, Math.round(input.durationSec)) : null;
+  const durationSec = start ? Math.round((now.getTime() - start.startedAt.getTime()) / 1000) : clientDuration;
+  try {
+    await (await getDb())
+      .insert(schema.submissions)
+      .values({
+        id: randomUUID(),
+        assignmentId,
+        studentId,
+        answers,
+        correctCount: result.correctCount,
+        total: result.total,
+        score: result.score,
+        durationSec: durationSec == null ? null : Math.min(MAX_DURATION_SEC, durationSec),
+        timings: sanitizeTimings(snapshot, input.timings ?? {}),
+        submittedAt: now,
+      })
+      .run();
+  } catch (err) {
+    // 동시에 두 번 제출된 경우 (유니크 제약)
+    if (await findSubmission(studentId, assignmentId)) throw new HttpError(409, "이미 제출한 시험입니다.");
+    throw err;
+  }
+  return {
+    score: result.score,
+    correctCount: result.correctCount,
+    total: result.total,
+    durationSec,
+    overtime: isOvertime(durationSec, a.timeLimitMin),
+  };
 }
 
 /** 학생 약점 분석 — 정답 비공개 시험의 오답 노트에는 정답·해설을 넣지 않습니다. */
@@ -459,6 +542,8 @@ export async function getStudentReport(studentId: string) {
     submittedAt: s.submittedAt.toISOString(),
     score: s.score,
     answers: s.answers as AnswerSheet,
+    timings: timingsOf(s.timings),
+    durationSec: s.durationSec,
     snapshot: snapshotOf(a),
     revealAnswers: a.revealAnswers,
   }));
