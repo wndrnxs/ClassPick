@@ -95,7 +95,7 @@ export const payments = sqliteTable("payments", {
   orderId: text("order_id").notNull().unique(),
   packId: text("pack_id").notNull(),
   amount: integer("amount").notNull(),
-  pencils: integer("pencils").notNull(),
+  tokens: integer("tokens").notNull(),
   provider: text("provider", { enum: ["mock", "toss"] }).notNull(),
   status: text("status", { enum: ["pending", "paid", "failed"] }).notNull().default("pending"),
   paymentKey: text("payment_key"),

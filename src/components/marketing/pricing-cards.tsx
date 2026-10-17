@@ -3,7 +3,7 @@ import { Check, Coins } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER, FEATURE_COSTS, PENCIL_PACKS, PLANS } from "@/lib/catalog";
+import { MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER, FEATURE_COSTS, TOKEN_PACKS, PLANS } from "@/lib/catalog";
 import { cn, formatWon } from "@/lib/utils";
 
 export function PlanCards() {
@@ -27,7 +27,7 @@ export function PlanCards() {
               {plan.period && <span className="text-sm text-muted-foreground">/ {plan.period}</span>}
             </p>
             <p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-primary">
-              <Coins className="size-4" /> {plan.pencils}
+              <Coins className="size-4" /> {plan.tokens}
             </p>
             <ul className="mt-6 flex-1 space-y-2.5">
               {plan.features.map((f) => (
@@ -46,7 +46,7 @@ export function PlanCards() {
   );
 }
 
-export function PencilCostTable() {
+export function TokenCostTable() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div className="rounded-2xl border bg-white p-6">
@@ -80,7 +80,7 @@ export function PencilCostTable() {
       <div className="rounded-2xl border bg-white p-6">
         <h3 className="font-extrabold">토큰 충전 (1회 결제)</h3>
         <ul className="mt-4 space-y-3">
-          {PENCIL_PACKS.map((p) => (
+          {TOKEN_PACKS.map((p) => (
             <li
               key={p.id}
               className={cn("flex items-center justify-between rounded-xl border p-4", "popular" in p && p.popular && "border-primary bg-secondary/50")}

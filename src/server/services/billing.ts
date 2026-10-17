@@ -4,14 +4,14 @@ import { randomUUID } from "node:crypto";
 
 import { and, desc, eq } from "drizzle-orm";
 
-import { PENCIL_PACKS } from "@/lib/catalog";
+import { TOKEN_PACKS } from "@/lib/catalog";
 import { getDb, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 import { HttpError } from "@/server/http";
 import { creditPoints } from "./points";
 
 function findPack(packId: string) {
-  const pack = PENCIL_PACKS.find((p) => p.id === packId);
+  const pack = TOKEN_PACKS.find((p) => p.id === packId);
   if (!pack) throw new HttpError(400, "존재하지 않는 상품입니다.");
   return pack;
 }
@@ -34,7 +34,7 @@ export async function startCheckout(userId: string, packId: string) {
       orderId,
       packId: pack.id,
       amount: pack.price,
-      pencils: pack.pencils,
+      tokens: pack.tokens,
       provider,
       status: provider === "mock" ? "paid" : "pending",
       createdAt: new Date(),
@@ -42,7 +42,7 @@ export async function startCheckout(userId: string, packId: string) {
     .run();
 
   if (provider === "mock") {
-    const balance = await creditPoints(userId, pack.pencils, "purchase", `${pack.label} 충전 (테스트 결제)`, orderId);
+    const balance = await creditPoints(userId, pack.tokens, "purchase", `${pack.label} 충전 (테스트 결제)`, orderId);
     return { provider, status: "paid" as const, orderId, balance };
   }
   return { provider, status: "pending" as const, orderId, amount: pack.price, orderName: `클래스픽 ${pack.label}` };
@@ -80,7 +80,7 @@ export async function confirmTossPayment(userId: string, params: { paymentKey: s
     .where(eq(schema.payments.id, payment.id))
     .run();
   const pack = findPack(payment.packId);
-  const balance = await creditPoints(userId, payment.pencils, "purchase", `${pack.label} 충전`, payment.orderId);
+  const balance = await creditPoints(userId, payment.tokens, "purchase", `${pack.label} 충전`, payment.orderId);
   return { balance, alreadyPaid: false };
 }
 

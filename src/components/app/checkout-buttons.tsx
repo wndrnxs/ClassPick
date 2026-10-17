@@ -8,10 +8,10 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
-import { PENCIL_PACKS } from "@/lib/catalog";
+import { TOKEN_PACKS } from "@/lib/catalog";
 import { cn, formatWon } from "@/lib/utils";
 
-export function PencilPackList({ provider }: { provider: "mock" | "toss" }) {
+export function TokenPackList({ provider }: { provider: "mock" | "toss" }) {
   const router = useRouter();
   const [pending, setPending] = useState<string | null>(null);
 
@@ -34,7 +34,7 @@ export function PencilPackList({ provider }: { provider: "mock" | "toss" }) {
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-      {PENCIL_PACKS.map((p) => {
+      {TOKEN_PACKS.map((p) => {
         const popular = "popular" in p && p.popular;
         return (
           <div key={p.id} className={cn("relative flex flex-col rounded-2xl border bg-white p-6", popular && "border-2 border-primary shadow-[var(--shadow-lift)]")}>

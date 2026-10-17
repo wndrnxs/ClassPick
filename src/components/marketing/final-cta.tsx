@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Feather, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { SIGNUP_BONUS_PENCILS } from "@/lib/catalog";
+import { SIGNUP_BONUS_TOKENS } from "@/lib/catalog";
 
 export function FinalCta() {
   return (
@@ -15,7 +15,7 @@ export function FinalCta() {
             선생님의 아이디어에, 클래스픽의 날개를 더하세요.
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-blue-100 sm:text-lg">
-            지금 가입하시면 무료 체험 포인트(토큰 {SIGNUP_BONUS_PENCILS}개)를 제공해 드립니다. 첫 수업 자료를 직접 생성해 보세요!
+            지금 가입하시면 무료 체험 포인트(토큰 {SIGNUP_BONUS_TOKENS}개)를 제공해 드립니다. 첫 수업 자료를 직접 생성해 보세요!
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild size="xl" className="bg-white text-primary-deep shadow-xl hover:bg-blue-50">

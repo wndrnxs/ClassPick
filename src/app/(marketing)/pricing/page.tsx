@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
 import { Faq } from "@/components/marketing/faq";
-import { PencilCostTable, PlanCards } from "@/components/marketing/pricing-cards";
+import { TokenCostTable, PlanCards } from "@/components/marketing/pricing-cards";
 import { SectionHeading } from "@/components/marketing/section-heading";
-import { SIGNUP_BONUS_PENCILS } from "@/lib/catalog";
+import { SIGNUP_BONUS_TOKENS } from "@/lib/catalog";
 
 export const metadata: Metadata = {
   title: "요금제",
@@ -17,7 +17,7 @@ const FAQ = [
   },
   {
     q: "무료 체험으로 무엇을 할 수 있나요?",
-    a: `가입하면 토큰 ${SIGNUP_BONUS_PENCILS}개가 지급되어, 지문 4~5편 분량의 풀세트 자료(6가지 유형)를 직접 만들어 볼 수 있습니다. 모든 다운로드 포맷도 제한 없이 이용할 수 있습니다.`,
+    a: `가입하면 토큰 ${SIGNUP_BONUS_TOKENS}개가 지급되어, 지문 4~5편 분량의 풀세트 자료(6가지 유형)를 직접 만들어 볼 수 있습니다. 모든 다운로드 포맷도 제한 없이 이용할 수 있습니다.`,
   },
   {
     q: "만든 자료를 여러 번 내려받으면 토큰이 또 차감되나요?",
@@ -43,7 +43,7 @@ export default function PricingPage() {
             <PlanCards />
           </div>
         </div>
-        <PencilCostTable />
+        <TokenCostTable />
         <div className="mx-auto max-w-3xl">
           <h2 className="mb-6 text-center text-2xl font-extrabold">자주 묻는 질문</h2>
           <Faq items={FAQ} />

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Coins } from "lucide-react";
 
-import { PencilPackList } from "@/components/app/checkout-buttons";
+import { TokenPackList } from "@/components/app/checkout-buttons";
 import { PageHeader } from "@/components/app/page-header";
-import { PencilCostTable } from "@/components/marketing/pricing-cards";
+import { TokenCostTable } from "@/components/marketing/pricing-cards";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatDateTime, formatNumber } from "@/lib/utils";
 import { requireUser } from "@/server/auth/dal";
@@ -81,9 +81,9 @@ export default function BillingPage() {
       </Suspense>
       <section>
         <h2 className="mb-4 text-lg font-extrabold">토큰 충전</h2>
-        <PencilPackList provider={env.paymentProvider} />
+        <TokenPackList provider={env.paymentProvider} />
       </section>
-      <PencilCostTable />
+      <TokenCostTable />
       <section>
         <h2 className="mb-4 text-lg font-extrabold">사용 내역</h2>
         <Suspense fallback={<Skeleton className="h-60 rounded-2xl" />}>

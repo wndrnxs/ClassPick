@@ -75,7 +75,7 @@ describe("materials", () => {
     await expect(s.materials.getMaterial(other, m.id)).rejects.toThrow(/찾을 수 없습니다/);
   });
 
-  it("refunds pencils when generation fails", async () => {
+  it("refunds tokens when generation fails", async () => {
     const id = await signup("e@test.kr");
     const spy = vi.spyOn(s.pipeline, "generatePassageContent").mockRejectedValueOnce(new Error("AI down"));
     await expect(

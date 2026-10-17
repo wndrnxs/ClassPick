@@ -53,6 +53,19 @@ const TYPE_INSTRUCTIONS: Record<MaterialType, (s: GenerationSettings) => string>
 - definition은 사전적 뜻풀이, context는 지문 속 쓰임(원문 인용)입니다.`,
 };
 
+/**
+ * 난이도별 출제 기준. '심화'는 수능 독서 3점 <보기> 적용 문항(예: 지문 속 여러 학자의 견해를
+ * <보기> 속 화자들의 입장에 교차 적용해 판단하는 유형)을 기준점으로 삼습니다.
+ */
+const DIFFICULTY_GUIDE: Record<GenerationSettings["difficulty"], string> = {
+  basic: `[기초] 지문에 직접 드러난 정보와 핵심 개념의 의미를 확인하는 수준입니다. 선지는 지문의 한 문장과 직접 대응시켜 판단할 수 있게 하고, 2단계 이상의 추론은 요구하지 않습니다.`,
+  standard: `[표준] 내신 평균 수준입니다. 문단 간 관계 파악, 표현의 효과, 구절의 맥락적 의미를 묻고, 오답 선지는 지문의 표현을 일부 바꾸거나 범위를 넘겨 판단하게 만듭니다.`,
+  advanced: `[심화] 수능 독서·문학 3점 고난도 문항 수준입니다. 다음 요소를 적극 활용합니다.
+- <보기>에 새로운 사례·대화·주장(예: 갑과 을의 상반된 입장)을 제시하고, 지문의 개념이나 여러 관점(학자·이론별 견해)을 그 사례에 적용해 판단하게 합니다.
+- 선지는 "(관점 A)의 견해에 의하면, (<보기> 속 인물)의 입장은 옳겠군/옳지 않겠군" 같은 2단 판단 구조로 만들고, 관점과 인물의 대응·긍부정 판단을 교차시켜 매력적 오답을 구성합니다.
+- 각 관점의 핵심 전제(무엇을 기준으로 판단하는가)를 정확히 구별해야만 정답을 고를 수 있게 하고, 정답 근거는 지문의 특정 문장으로 반드시 확인 가능해야 합니다.`,
+};
+
 export function buildPassageUserPrompt(
   type: MaterialType,
   input: { title: string; author: string; sourceNote: string; settings: GenerationSettings },
@@ -68,7 +81,7 @@ export function buildPassageUserPrompt(
   ]
     .filter(Boolean)
     .join("\n");
-  return `수업 설정\n${meta}\n\n요청 자료\n${TYPE_INSTRUCTIONS[type](s)}`;
+  return `수업 설정\n${meta}\n\n난이도 기준\n${DIFFICULTY_GUIDE[s.difficulty]}\n\n요청 자료\n${TYPE_INSTRUCTIONS[type](s)}`;
 }
 
 export const EXAM_SYSTEM_PROMPT = `당신은 국어 내신 시험지를 분석하는 평가 전문가입니다.

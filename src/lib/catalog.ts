@@ -73,19 +73,19 @@ export const FEATURE_COSTS = {
   examCompose: 1,
 } as const;
 
-export const SIGNUP_BONUS_PENCILS = 30;
+export const SIGNUP_BONUS_TOKENS = 30;
 
 export function costOf(types: MaterialType[]) {
   return types.reduce((sum, t) => sum + MATERIAL_TYPE_META[t].cost, 0);
 }
 
 /** 토큰 충전 상품 (1회 결제) */
-export const PENCIL_PACKS = [
-  { id: "pack-100", pencils: 100, price: 9900, label: "토큰 100개", note: "지문 약 14편 풀세트" },
-  { id: "pack-300", pencils: 300, price: 24900, label: "토큰 300개", note: "16% 할인 · 가장 많이 선택", popular: true },
-  { id: "pack-1000", pencils: 1000, price: 69000, label: "토큰 1,000개", note: "30% 할인 · 학원 단위 추천" },
+export const TOKEN_PACKS = [
+  { id: "pack-100", tokens: 100, price: 9900, label: "토큰 100개", note: "지문 약 14편 풀세트" },
+  { id: "pack-300", tokens: 300, price: 24900, label: "토큰 300개", note: "16% 할인 · 가장 많이 선택", popular: true },
+  { id: "pack-1000", tokens: 1000, price: 69000, label: "토큰 1,000개", note: "30% 할인 · 학원 단위 추천" },
 ] as const;
-export type PencilPackId = (typeof PENCIL_PACKS)[number]["id"];
+export type TokenPackId = (typeof TOKEN_PACKS)[number]["id"];
 
 /** 정기 구독 요금제 (요금제 페이지 노출용) */
 export const PLANS = [
@@ -94,7 +94,7 @@ export const PLANS = [
     name: "무료 체험",
     price: 0,
     period: "",
-    pencils: `가입 즉시 토큰 ${SIGNUP_BONUS_PENCILS}개`,
+    tokens: `가입 즉시 토큰 ${SIGNUP_BONUS_TOKENS}개`,
     description: "클래스픽이 처음이라면, 첫 수업 자료부터 직접 만들어 보세요.",
     features: ["6가지 자료 유형 모두 체험", "HWPX · DOCS · PDF 다운로드", "생성 샘플 자료 열람"],
     cta: "무료로 시작하기",
@@ -104,7 +104,7 @@ export const PLANS = [
     name: "스탠다드",
     price: 19900,
     period: "월",
-    pencils: "매월 토큰 300개",
+    tokens: "매월 토큰 300개",
     description: "매주 수업 자료를 만드는 현직 교사·강사에게 알맞은 요금제입니다.",
     features: ["모든 자료 유형 무제한 선택", "스캔 문서 스마트 OCR", "시험지 분석 보고서", "모음 시험지 제본"],
     cta: "스탠다드 시작하기",
@@ -115,7 +115,7 @@ export const PLANS = [
     name: "프로 · 학원",
     price: 49000,
     period: "월",
-    pencils: "매월 토큰 1,000개",
+    tokens: "매월 토큰 1,000개",
     description: "여러 반·여러 강사가 함께 쓰는 학원과 교과 협의회를 위한 요금제입니다.",
     features: ["스탠다드의 모든 기능", "학원 고유 양식 HWPX 템플릿", "팀 자료함 공유 (준비 중)", "우선 고객 지원"],
     cta: "도입 문의하기",

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { eq } from "drizzle-orm";
 
-import { SIGNUP_BONUS_PENCILS } from "@/lib/catalog";
+import { SIGNUP_BONUS_TOKENS } from "@/lib/catalog";
 import type { SignupInput } from "@/lib/schemas";
 import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { getDb, schema } from "@/server/db/client";
@@ -30,7 +30,7 @@ export async function registerUser(input: SignupInput) {
       createdAt: new Date(),
     })
     .run();
-  await creditPoints(id, SIGNUP_BONUS_PENCILS, "signup_bonus", "가입 축하 무료 체험 토큰");
+  await creditPoints(id, SIGNUP_BONUS_TOKENS, "signup_bonus", "가입 축하 무료 체험 토큰");
   return id;
 }
 
@@ -58,7 +58,7 @@ export async function createGuestUser() {
       createdAt: new Date(),
     })
     .run();
-  await creditPoints(id, SIGNUP_BONUS_PENCILS, "signup_bonus", "체험 계정 무료 토큰");
+  await creditPoints(id, SIGNUP_BONUS_TOKENS, "signup_bonus", "체험 계정 무료 토큰");
   await seedSampleMaterials(id);
   return id;
 }
