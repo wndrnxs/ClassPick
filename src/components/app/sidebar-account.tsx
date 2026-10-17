@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { cache, type ReactNode } from "react";
 import { Coins, Plus } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils";
 import { requireUser } from "@/server/auth/dal";
+import { countTeacherOpenInquiries } from "@/server/services/inquiries";
+import { AppNav } from "./app-nav";
+import { MobileNav } from "./mobile-nav";
 import { PointsPill } from "./points-pill";
 import { UserMenu } from "./user-menu";
 
@@ -43,4 +47,15 @@ export function SidebarAccountSkeleton() {
 export async function TopbarPoints() {
   const user = await requireUser();
   return <PointsPill points={user.points} />;
+}
+
+const navBadges = cache(async () => ({ "/app/questions": await countTeacherOpenInquiries((await requireUser()).id) }));
+
+/** 사이드바 메뉴 + 답변 대기 질문 수 */
+export async function AppNavWithBadges() {
+  return <AppNav badges={await navBadges()} />;
+}
+
+export async function MobileNavWithBadges({ footer }: { footer?: ReactNode }) {
+  return <MobileNav footer={footer} badges={await navBadges()} />;
 }

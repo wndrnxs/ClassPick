@@ -1,10 +1,18 @@
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 
 import { Logo } from "@/components/brand/logo";
 import { StudentMenu } from "@/components/student/student-menu";
 import { StudentNav, StudentNavLinks } from "@/components/student/student-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireStudent } from "@/server/auth/dal";
+import { countStudentUnread } from "@/server/services/inquiries";
+
+const unreadAnswers = cache(async () => countStudentUnread((await requireStudent()).id));
+
+/** 메뉴 + '내 질문' 새 답변 수 */
+async function StudentNavWithBadges({ className }: { className?: string }) {
+  return <StudentNav className={className} badges={{ "/student/questions": await unreadAnswers() }} />;
+}
 
 async function StudentAccount() {
   const user = await requireStudent();
@@ -22,17 +30,17 @@ export default function StudentLayout({ children }: LayoutProps<"/student">) {
               <Logo href="/student" />
               <span className="rounded-full bg-emerald-soft px-2 py-0.5 text-[11px] font-bold text-emerald-700">학생</span>
             </span>
-            <Suspense fallback={<StudentNavLinks className="hidden sm:flex" />}>
-              <StudentNav className="hidden sm:flex" />
+            <Suspense fallback={<StudentNavLinks className="hidden md:flex" />}>
+              <StudentNavWithBadges className="hidden md:flex" />
             </Suspense>
           </div>
           <Suspense fallback={<Skeleton className="h-9 w-28 rounded-full" />}>
             <StudentAccount />
           </Suspense>
         </div>
-        <div className="border-t px-2 py-1.5 sm:hidden">
+        <div className="border-t px-2 py-1.5 md:hidden">
           <Suspense fallback={<StudentNavLinks />}>
-            <StudentNav />
+            <StudentNavWithBadges />
           </Suspense>
         </div>
       </header>

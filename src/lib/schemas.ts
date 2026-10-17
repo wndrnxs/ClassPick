@@ -319,3 +319,21 @@ export const SubmitAnswersInput = z.object({
   durationSec: z.number().nullable().catch(null).default(null),
   timings: z.record(z.string(), z.unknown()).catch({}).default({}),
 });
+
+/* ------------------------------------------------------------------ */
+/* 문항 질문 (학생 ↔ 선생님)                                              */
+/* ------------------------------------------------------------------ */
+
+const InquiryBody = z.string().trim().min(1, "내용을 입력해 주세요.").max(1000, "1000자 이내로 입력해 주세요.");
+
+export const AskQuestionInput = z.object({
+  assignmentId: z.string().min(1),
+  questionId: z.string().min(1),
+  body: InquiryBody,
+});
+
+export const InquiryMessageInput = z.object({ body: InquiryBody });
+
+export const InquiryUpdateInput = z.object({ isPublic: z.boolean() });
+
+export const InquiryReadInput = z.object({ assignmentId: z.string().min(1) });

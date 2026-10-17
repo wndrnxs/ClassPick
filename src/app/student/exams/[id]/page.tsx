@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { ArrowLeft, EyeOff, Lock, Target, Timer } from "lucide-react";
+import { ArrowLeft, EyeOff, Lock, MessageCircleQuestion, Target, Timer } from "lucide-react";
 
 import { ColumnChart, StatTile } from "@/components/classroom/charts";
 import { PassageView } from "@/components/material/sections";
 import { ExamTaker } from "@/components/student/exam-taker";
+import { MarkInquiriesRead } from "@/components/student/mark-inquiries-read";
+import { QuestionInquiry } from "@/components/student/question-inquiry";
 import { QuestionReview } from "@/components/student/question-review";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,10 +18,12 @@ import { cn, formatClock, formatDateTime, formatDuration } from "@/lib/utils";
 import { requireStudent } from "@/server/auth/dal";
 import { HttpError } from "@/server/http";
 import { getStudentAssignment, type StudentAssignmentView } from "@/server/services/classroom";
+import { studentInquiriesForAssignment } from "@/server/services/inquiries";
 
 export const metadata: Metadata = { title: "시험" };
 
 type DoneView = Extract<StudentAssignmentView, { state: "done" }>;
+type Inquiries = Awaited<ReturnType<typeof studentInquiriesForAssignment>>;
 
 /** 반 평균보다 1.5배 이상(15초 이상 차이) 오래 걸린 문항 */
 const isSlow = (mine: number | undefined, avg: number | undefined) => mine != null && avg != null && mine >= avg * 1.5 && mine - avg >= 15;
@@ -120,7 +124,8 @@ function BackLink() {
   );
 }
 
-function ExamResult({ view }: { view: DoneView }) {
+function ExamResult({ view, inquiries }: { view: DoneView; inquiries: Inquiries }) {
+  const answered = view.exam.questions.filter((q) => inquiries.mine[q.id]?.unread);
   const { result, exam } = view;
   const tone = result.score >= 80 ? "text-emerald-600" : result.score >= 60 ? "text-primary" : "text-amber-600";
   return (
@@ -183,7 +188,24 @@ function ExamResult({ view }: { view: DoneView }) {
         </div>
       </section>
 
+      {answered.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-primary/30 bg-secondary/50 px-4 py-3 text-sm">
+          <MessageCircleQuestion className="size-4 shrink-0 text-primary" />
+          <b>선생님이 질문에 답했어요.</b>
+          {answered.map((q) => (
+            <a key={q.id} href={`#r-${q.id}`} className="rounded-md bg-white px-2 py-0.5 font-semibold text-primary hover:underline">
+              {q.number}번
+            </a>
+          ))}
+        </div>
+      )}
+      <MarkInquiriesRead assignmentId={view.id} />
+
       <TimeAnalysis view={view} />
+
+      <p className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
+        <MessageCircleQuestion className="size-4 shrink-0 text-primary" /> 문항마다 「이 문항 질문하기」로 선생님께 궁금한 점을 물어볼 수 있어요.
+      </p>
 
       {!view.revealAnswers && (
         <p className="mt-4 flex items-center gap-2 rounded-xl border bg-white px-4 py-3 text-sm text-muted-foreground">
@@ -191,7 +213,7 @@ function ExamResult({ view }: { view: DoneView }) {
         </p>
       )}
 
-      <div className="mt-8 space-y-10">
+      <div className="mt-4 space-y-10">
         {exam.sections.map((section, si) => {
           const qs = exam.questions.filter((q) => q.sectionIndex === si);
           if (!qs.length) return null;
@@ -216,6 +238,15 @@ function ExamResult({ view }: { view: DoneView }) {
                   timeSec={result.timings[q.id] ?? null}
                   timeCompare={result.classAvgTimes[q.id] != null ? `반 평균 ${formatClock(result.classAvgTimes[q.id])}` : undefined}
                   timeFlag={isSlow(result.timings[q.id], result.classAvgTimes[q.id]) ? "오래 걸림" : null}
+                  footer={
+                    <QuestionInquiry
+                      assignmentId={view.id}
+                      questionId={q.id}
+                      questionNumber={q.number}
+                      thread={inquiries.mine[q.id] ?? null}
+                      shared={inquiries.shared[q.id] ?? []}
+                    />
+                  }
                 />
               ))}
             </section>
@@ -237,7 +268,7 @@ async function StudentExam({ params }: { params: PageProps<"/student/exams/[id]"
     throw err;
   }
 
-  if (view.state === "done") return <ExamResult view={view} />;
+  if (view.state === "done") return <ExamResult view={view} inquiries={await studentInquiriesForAssignment(user.id, id)} />;
 
   if (view.status !== "open") {
     return (

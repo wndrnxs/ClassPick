@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { AlertTriangle, ArrowLeft, FileText, Timer, Users } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileText, MessageCircleQuestion, Timer, Users } from "lucide-react";
 
 import { AssignmentControls } from "@/components/classroom/assignment-controls";
 import { BarList, ColumnChart, StatTile } from "@/components/classroom/charts";
@@ -13,6 +13,7 @@ import { cn, formatClock, formatDateTime, formatDuration } from "@/lib/utils";
 import { requireUser } from "@/server/auth/dal";
 import { HttpError } from "@/server/http";
 import { getAssignmentReport, type AssignmentReport } from "@/server/services/classroom";
+import { inquiryCountsForAssignment } from "@/server/services/inquiries";
 
 export const metadata: Metadata = { title: "시험 성적 분석" };
 
@@ -149,6 +150,8 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
     throw e;
   }
   const { assignment, classInfo, snapshot, submissions, notSubmitted, analysis } = report;
+  const inquiries = await inquiryCountsForAssignment(user.id, id);
+  const questionsHref = `/app/questions?status=all&assignment=${id}`;
   const rate = analysis.rosterSize ? Math.round((analysis.submitted / analysis.rosterSize) * 100) : 0;
 
   return (
@@ -177,6 +180,15 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
               </>
             )}
           </p>
+          {inquiries.total > 0 && (
+            <Link
+              href={questionsHref}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-secondary/60 px-2.5 py-1 text-sm font-semibold text-primary hover:bg-secondary"
+            >
+              <MessageCircleQuestion className="size-4" /> 학생 질문 {inquiries.total}개
+              {inquiries.open > 0 && <span className="rounded-full bg-red-500 px-1.5 text-xs text-white">답변 대기 {inquiries.open}</span>}
+            </Link>
+          )}
         </div>
         <AssignmentControls id={assignment.id} status={assignment.status} />
       </div>
@@ -288,6 +300,12 @@ async function Report({ params }: { params: PageProps<"/app/assignments/[id]">["
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {q.kind === "mcq" ? "5지선다" : "OX"} · {q.category} · 난이도 {q.difficulty}
                           </p>
+                          {inquiries.byQuestion[q.id] && (
+                            <Link href={questionsHref} className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+                              <MessageCircleQuestion className="size-3.5" /> 질문 {inquiries.byQuestion[q.id].total}
+                              {inquiries.byQuestion[q.id].open > 0 && ` · 답변 대기 ${inquiries.byQuestion[q.id].open}`}
+                            </Link>
+                          )}
                         </td>
                         <td className="px-4 py-3 font-bold text-emerald-700">{answerLabel(q)}</td>
                         <td className="px-4 py-3">

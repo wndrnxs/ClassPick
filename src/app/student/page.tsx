@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { CheckCircle2, ChevronRight, FileQuestion, Lock, School, Target, Users } from "lucide-react";
+import { CheckCircle2, ChevronRight, FileQuestion, Lock, MessageCircleQuestion, School, Target, Users } from "lucide-react";
 
 import { PageHeader } from "@/components/app/page-header";
 import { StatTile } from "@/components/classroom/charts";
@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock, formatDate, formatDuration } from "@/lib/utils";
 import { requireStudent } from "@/server/auth/dal";
 import { listStudentAssignments, listStudentClasses } from "@/server/services/classroom";
+import { countStudentUnread } from "@/server/services/inquiries";
 
 export const metadata: Metadata = { title: "내 시험" };
 
@@ -64,9 +65,22 @@ async function AssignmentBoard() {
   const done = list.filter((a) => a.submission);
   const missed = list.filter((a) => !a.submission && a.status !== "open");
   const avg = done.length ? Math.round((done.reduce((s, a) => s + a.submission!.score, 0) / done.length) * 10) / 10 : null;
+  const newAnswers = await countStudentUnread(user.id);
 
   return (
     <div className="space-y-8">
+      {newAnswers > 0 && (
+        <Link
+          href="/student/questions"
+          className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-secondary/50 px-5 py-4 transition hover:bg-secondary"
+        >
+          <MessageCircleQuestion className="size-5 shrink-0 text-primary" />
+          <span className="flex-1 text-sm">
+            <b>선생님이 내 질문에 답했어요.</b> 새 답변 {newAnswers}개를 확인해 보세요.
+          </span>
+          <ChevronRight className="size-4 text-primary" />
+        </Link>
+      )}
       <div className="grid grid-cols-3 gap-3">
         <StatTile label="풀어야 할 시험" value={todo.length} unit="개" />
         <StatTile label="완료한 시험" value={done.length} unit="개" />

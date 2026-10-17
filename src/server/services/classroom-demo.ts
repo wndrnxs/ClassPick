@@ -138,6 +138,51 @@ async function insertSubmission(assignmentId: string, studentId: string, ability
     .run();
 }
 
+type DemoMessage = ["student" | "teacher", string];
+
+/** 체험용 문항 질문 대화 */
+async function seedInquiry(
+  assignmentId: string,
+  studentId: string,
+  teacherId: string,
+  questionId: string,
+  messages: DemoMessage[],
+  opts: { minutesAgo: number; isPublic?: boolean; unread?: boolean },
+) {
+  const db = await getDb();
+  const id = randomUUID();
+  const start = Date.now() - opts.minutesAgo * 60_000;
+  const at = (i: number) => new Date(start + i * 37 * 60_000);
+  const last = messages[messages.length - 1][0];
+  await db
+    .insert(schema.inquiries)
+    .values({
+      id,
+      assignmentId,
+      studentId,
+      questionId,
+      status: last === "teacher" ? "answered" : "open",
+      isPublic: opts.isPublic ?? false,
+      studentUnread: opts.unread ?? false,
+      createdAt: at(0),
+      updatedAt: at(messages.length - 1),
+    })
+    .run();
+  await db
+    .insert(schema.inquiryMessages)
+    .values(
+      messages.map(([role, body], i) => ({
+        id: randomUUID(),
+        inquiryId: id,
+        authorId: role === "teacher" ? teacherId : studentId,
+        authorRole: role,
+        body,
+        createdAt: at(i),
+      })),
+    )
+    .run();
+}
+
 /** 체험용 시험 배포: 수능 페이스 기준 권장 제한 시간을 붙입니다. */
 async function distributeDemo(teacherId: string, materialId: string, classId: string, title: string) {
   const { id } = await createAssignment(teacherId, { materialId, classId, title, revealAnswers: true });
@@ -174,8 +219,43 @@ export async function seedTeacherClassroom(teacherId: string, materialIds: Recor
       // 마지막 제출자 한 명은 제한 시간을 넘겨 제출한 사례
       await insertSubmission(id, s.id, s.ability, plan.ago - i * 7, i === plan.submitters - 1);
     }
+    if (plan.slug === "azalea") await seedAzaleaInquiries(id, teacherId, students.map((s) => s.id));
   }
   return cls;
+}
+
+/** 체험 선생님의 「진달래꽃」 시험: 답변을 기다리는 질문 2개 + 반 전체에 공개한 답변 1개 */
+async function seedAzaleaInquiries(assignmentId: string, teacherId: string, studentIds: string[]) {
+  await seedInquiry(
+    assignmentId,
+    studentIds[2],
+    teacherId,
+    "s0-m2",
+    [
+      ["student", "3번에서 ③이 왜 적절하지 않은지 모르겠어요. '즈려밟고 가시옵소서'도 결국 슬픈 마음을 표현한 것 아닌가요?"],
+      [
+        "teacher",
+        "좋은 질문이에요. 이 구절에 슬픔이 담겨 있는 건 맞아요. 그런데 ③은 '임에 대한 원망을 직접 드러낸다'고 했지요. 화자는 꽃을 뿌려 임이 가는 길을 축복하고, 자신을 밟고 가라고 할 만큼 헌신하는 태도를 보여요. 원망을 드러내는 게 아니라 슬픔을 안으로 삭이는 '정한'의 태도라서 ③이 적절하지 않은 거예요. 선지에 '직접 드러내어'처럼 정도를 나타내는 말이 있으면 꼭 지문과 맞춰 보세요.",
+      ],
+    ],
+    { minutesAgo: 60 * 24 * 2, isPublic: true },
+  );
+  await seedInquiry(
+    assignmentId,
+    studentIds[1],
+    teacherId,
+    "s0-m1",
+    [["student", "2번 ③번 선지에는 '역설적으로 강조한다'고 되어 있는데, 수업 시간에는 이 구절이 반어법이라고 배웠어요. 반어와 역설은 어떻게 다른 건가요? 정답이 ③인 게 맞나요?"]],
+    { minutesAgo: 60 * 5 },
+  );
+  await seedInquiry(
+    assignmentId,
+    studentIds[0],
+    teacherId,
+    "s0-o2",
+    [["student", "6번 OX에서 반어적 표현이라고 했는데, 화자가 정말로 울지 않겠다고 다짐하는 걸로 읽으면 안 되나요?"]],
+    { minutesAgo: 60 * 2 },
+  );
 }
 
 /**
@@ -195,6 +275,23 @@ export async function seedStudentClassroom(studentId: string, teacherId: string,
     if (!materialId) continue;
     const id = await distributeDemo(teacherId, materialId, cls.id, plan.title);
     if (plan.ability !== null) await insertSubmission(id, studentId, plan.ability, plan.ago);
+    if (plan.slug === "lucky-day") {
+      // 선생님이 답변했지만 학생이 아직 확인하지 않은 질문 → '새 답변' 표시
+      await seedInquiry(
+        id,
+        studentId,
+        teacherId,
+        "s0-m1",
+        [
+          ["student", "2번에서 ①번도 맞는 것 같아요. 김 첨지도 하루 종일 일해서 배가 고팠을 텐데 왜 틀린 건가요?"],
+          [
+            "teacher",
+            "김 첨지가 배고팠을 수는 있지만, 지문에서 설렁탕을 사려는 이유는 분명히 나와 있어요. '컬컬한 목에 모주 한 잔도 적실 수 있거니와 그보다도 앓는 아내에게 설렁탕 한 그릇도 사다 줄 수 있음이다.' 자기 목을 축이는 것보다 '그보다도' 아픈 아내에게 설렁탕을 사다 주는 것을 더 중요하게 여기고 있죠. 그래서 설렁탕은 아내에 대한 애정을 드러내는 소재이고, 결말에서 아내가 이미 죽어 있을 때 비극을 더 크게 만들어요. 선지를 고를 때는 지문의 근거 문장을 꼭 찾아보세요!",
+          ],
+        ],
+        { minutesAgo: plan.ago - 60, unread: true },
+      );
+    }
   }
   return cls;
 }

@@ -7,7 +7,8 @@
  *        ├─< payments           (토큰 충전 결제)
  *        ├─< classes ─< class_members >─ users(student)   (반 · 학생 명단)
  *        └─< assignments ─┬─< submissions                (시험 배포 · 학생 응시 결과)
- *                         └─< exam_starts                (응시 시작 시각 · 제한 시간 계산)
+ *                         ├─< exam_starts                (응시 시작 시각 · 제한 시간 계산)
+ *                         └─< inquiries ─< inquiry_messages (문항 질문 · 선생님 답변)
  */
 import { sql } from "drizzle-orm";
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
@@ -204,6 +205,54 @@ export const examStarts = sqliteTable(
     startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [primaryKey({ columns: [t.assignmentId, t.studentId] })],
+);
+
+/**
+ * 문항 질문: 학생이 제출한 시험의 한 문항에 대해 선생님께 묻는 대화.
+ * 학생·문항마다 하나의 대화이며, 추가 질문과 답변은 inquiry_messages에 쌓입니다.
+ */
+export const inquiries = sqliteTable(
+  "inquiries",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id, { onDelete: "cascade" }),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 시험 스냅샷의 문항 ID (예: s0-m1) */
+    questionId: text("question_id").notNull(),
+    /** open: 선생님 답변 대기 / answered: 마지막 메시지가 선생님 답변 */
+    status: text("status", { enum: ["open", "answered"] }).notNull().default("open"),
+    /** 선생님이 반 전체에 공개한 질문 (다른 학생에게는 이름 없이 표시) */
+    isPublic: integer("is_public", { mode: "boolean" }).notNull().default(false),
+    /** 학생이 아직 확인하지 않은 선생님 답변이 있음 */
+    studentUnread: integer("student_unread", { mode: "boolean" }).notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [
+    uniqueIndex("inquiries_thread_unique").on(t.assignmentId, t.studentId, t.questionId),
+    index("inquiries_student_idx").on(t.studentId),
+  ],
+);
+
+export const inquiryMessages = sqliteTable(
+  "inquiry_messages",
+  {
+    id: text("id").primaryKey(),
+    inquiryId: text("inquiry_id")
+      .notNull()
+      .references(() => inquiries.id, { onDelete: "cascade" }),
+    authorId: text("author_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    authorRole: text("author_role", { enum: ["student", "teacher"] }).notNull(),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("inquiry_messages_inquiry_idx").on(t.inquiryId)],
 );
 
 export type User = typeof users.$inferSelect;

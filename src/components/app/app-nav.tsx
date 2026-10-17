@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookCopy, ClipboardCheck, Coins, FolderOpen, Home, ScanText, Sparkles, Users } from "lucide-react";
+import { BarChart3, BookCopy, ClipboardCheck, Coins, FolderOpen, Home, MessageCircleQuestion, ScanText, Sparkles, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { APP_NAV } from "./nav-items";
@@ -17,9 +17,13 @@ const ICONS = {
   coins: Coins,
   users: Users,
   clipboard: ClipboardCheck,
+  message: MessageCircleQuestion,
 };
 
-export function AppNavLinks({ onNavigate, activePath }: { onNavigate?: () => void; activePath?: string | null }) {
+/** 메뉴 href → 알림 숫자 (예: 답변 대기 질문 수) */
+export type NavBadges = Partial<Record<string, number>>;
+
+export function AppNavLinks({ onNavigate, activePath, badges }: { onNavigate?: () => void; activePath?: string | null; badges?: NavBadges }) {
   return (
     <nav className="flex flex-col gap-0.5" aria-label="워크스페이스 메뉴">
       {APP_NAV.map((item) => {
@@ -42,6 +46,11 @@ export function AppNavLinks({ onNavigate, activePath }: { onNavigate?: () => voi
           >
             <Icon className={cn("size-[18px]", active ? "text-primary" : isPrimary ? "text-primary" : "text-slate-400")} />
             {item.label}
+            {!!badges?.[item.href] && (
+              <span className="ml-auto rounded-full bg-red-500 px-1.5 text-[11px] leading-[18px] font-bold text-white tabular-nums" aria-label={`답변 대기 ${badges[item.href]}개`}>
+                {badges[item.href]}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -49,7 +58,7 @@ export function AppNavLinks({ onNavigate, activePath }: { onNavigate?: () => voi
   );
 }
 
-export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
+export function AppNav({ onNavigate, badges }: { onNavigate?: () => void; badges?: NavBadges }) {
   const pathname = usePathname();
-  return <AppNavLinks onNavigate={onNavigate} activePath={pathname} />;
+  return <AppNavLinks onNavigate={onNavigate} activePath={pathname} badges={badges} />;
 }

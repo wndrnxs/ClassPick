@@ -2,6 +2,7 @@
  * 채점된 문항 보기 (훅 없음 · 서버 컴포넌트에서 사용)
  * reveal=false 이면 정답·해설을 표시하지 않고 내 답과 정오만 보여 줍니다.
  */
+import type { ReactNode } from "react";
 import { CheckCircle2, Lightbulb, Timer, XCircle } from "lucide-react";
 
 import { BogiBox, CIRCLED } from "@/components/material/sections";
@@ -32,6 +33,8 @@ export function QuestionReview({
   timeSec,
   timeCompare,
   timeFlag,
+  answerLabel = "내 답",
+  footer,
 }: {
   q: AssessmentQuestion | PublicQuestion;
   myAnswer: AnswerValue | null | undefined;
@@ -44,6 +47,10 @@ export function QuestionReview({
   timeCompare?: string;
   /** 눈에 띄게 표시할 시간 진단 (예: "빨리 풀다 틀림") */
   timeFlag?: string | null;
+  /** 응답 표시 이름 (선생님 화면에서는 "학생 답") */
+  answerLabel?: string;
+  /** 카드 하단에 붙일 내용 (예: 문항 질문) */
+  footer?: ReactNode;
 }) {
   const full = reveal && "answer" in q ? (q as AssessmentQuestion) : null;
   const mine = myAnswer ?? null;
@@ -90,7 +97,7 @@ export function QuestionReview({
                   <span className="shrink-0">{CIRCLED[j]}</span>
                   <span className="min-w-0 flex-1">{opt}</span>
                   <span className="flex shrink-0 gap-1">
-                    {isMine && <Badge variant={correct ? "emerald" : "destructive"}>내 답</Badge>}
+                    {isMine && <Badge variant={correct ? "emerald" : "destructive"}>{answerLabel}</Badge>}
                     {isAnswer && <Badge variant="emerald">정답</Badge>}
                   </span>
                 </li>
@@ -102,7 +109,7 @@ export function QuestionReview({
       ) : (
         <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
           <span>
-            내 답 <b className={cn("text-base", correct ? "text-emerald-700" : "text-red-600")}>{oxLabel(mine)}</b>
+            {answerLabel} <b className={cn("text-base", correct ? "text-emerald-700" : "text-red-600")}>{oxLabel(mine)}</b>
           </span>
           {full && (
             <span>
@@ -131,6 +138,7 @@ export function QuestionReview({
           )}
         </div>
       )}
+      {footer}
     </article>
   );
 }
