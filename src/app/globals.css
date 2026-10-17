@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * ClassPick design tokens
+ * - Primary: Royal Blue (#2563EB) / Deep Indigo (#1E40AF) — 신뢰·교육적 권위
+ * - Accent: Emerald (#10B981) / Amber (#F59E0B) — 배지·CTA 강조
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --primary-deep: #1e40af;
+  --secondary: #eff4ff;
+  --secondary-foreground: #1e3a8a;
+  --muted: #f4f6fb;
+  --muted-foreground: #5b6478;
+  --accent: #eef2ff;
+  --accent-foreground: #1e3a8a;
+  --emerald: #10b981;
+  --emerald-soft: #ecfdf5;
+  --amber: #f59e0b;
+  --amber-soft: #fffbeb;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #e3e8f2;
+  --input: #d9dfeb;
+  --ring: #2563eb;
+  --radius: 0.75rem;
+  --surface: #f7f9fd;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-deep: var(--primary-deep);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-emerald: var(--emerald);
+  --color-emerald-soft: var(--emerald-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--surface);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo",
+    "Malgun Gothic", "맑은 고딕", sans-serif;
+  --font-serif: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", "바탕", serif;
+  --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -8px rgb(30 64 175 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.04), 0 18px 40px -12px rgb(30 64 175 / 0.22);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  ::selection {
+    background: rgb(37 99 235 / 0.16);
+  }
+}
+
+@layer utilities {
+  .bg-grid {
+    background-image:
+      linear-gradient(to right, rgb(37 99 235 / 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(37 99 235 / 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .glass {
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+  }
+  .passage {
+    font-family: var(--font-serif);
+    line-height: 1.95;
+    letter-spacing: -0.005em;
+  }
+}
+
+/* 인쇄(PDF 저장) 전용 스타일 */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-break {
+    break-before: page;
+  }
+  .print-avoid {
+    break-inside: avoid;
+  }
+}
