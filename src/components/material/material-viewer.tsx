@@ -23,6 +23,7 @@ import { KIND_LABELS, MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER } from "@/lib/cata
 import type { MaterialDTO } from "@/lib/material-dto";
 import { DIFFICULTIES, SCHOOL_LEVELS } from "@/lib/schemas";
 import { cn, formatDate } from "@/lib/utils";
+import { DistributeDialog } from "@/components/classroom/distribute-dialog";
 import { ExamReportView, ExamSetView } from "./exam-views";
 import { ExportMenu, type ExportTargets } from "./export-menu";
 import { AnnotationView, McqView, OxView, PassageView, ShortAnswerView, StructureView, VocabView } from "./sections";
@@ -109,11 +110,14 @@ export function MaterialViewer({
   targets,
   isSample = false,
   initialTab,
+  gradableCount = 0,
 }: {
   material: MaterialDTO;
   targets: ExportTargets;
   isSample?: boolean;
   initialTab?: string;
+  /** 0보다 크면 '학생에게 배포' 버튼을 보여 줍니다 (5지선다·OX 문항 수) */
+  gradableCount?: number;
 }) {
   const [showAnswers, setShowAnswers] = useState(true);
   const hasAnswers = material.kind === "passage" || material.kind === "exam_set";
@@ -149,6 +153,9 @@ export function MaterialViewer({
               {showAnswers ? <EyeOff /> : <Eye />}
               {showAnswers ? "정답·해설 숨기기" : "정답·해설 보기"}
             </Button>
+          )}
+          {gradableCount > 0 && !isSample && (
+            <DistributeDialog materialId={material.id} defaultTitle={material.title} gradableCount={gradableCount} />
           )}
           <ExportMenu {...targets} />
           {!isSample && <DeleteButton id={material.id} />}

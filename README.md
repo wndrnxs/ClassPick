@@ -18,6 +18,22 @@
 | ⑤ | **스캔 문서 스마트 OCR** — 스캔 PDF·이미지 → 편집 가능한 HWPX (텍스트 문서는 무료 추출) | `/app/ocr` | HWPX · DOCS |
 | ⑥ | **여러 지문 모음 시험지 제본** — 지문 순서·출제 유형 선택, 연속 번호·정답표 자동 정리 | `/app/exam-builder` | 교사용 / 학생용 |
 
+### 학생 포털 · 시험 배포 (`claude/student-portal` 브랜치)
+
+| 대상 | 기능 | 화면 |
+|------|------|------|
+| 선생님 | **반 만들기** — 반마다 6자리 참여 코드 발급, 학생 명단·반별 평균 관리 | `/app/classes` |
+| 선생님 | **시험 배포** — 자료 보기의 「학생에게 배포」 → 반 선택, 제출 후 정답 공개 여부 설정. 5지선다·OX만 자동 채점 문항으로 출제 | 자료 보기 |
+| 선생님 | **성적 분석** — 응시율·평균·중앙값·최고/최저, 점수 분포, 영역·난이도별 정답률, 정답률 낮은 문항과 가장 많이 고른 오답, 문항별 선택 분포, 학생별 성적, 미응시자 | `/app/assignments/:id` |
+| 학생 | **반 참여 · 받은 시험만 응시** — 소속 반에 배포된 시험만 보이고, 1회 제출 · 서버 채점. 답안은 기기에 임시 저장되어 새로고침해도 유지 | `/student`, `/student/exams/:id` |
+| 학생 | **결과 확인** — 점수, 문항별 정오, (공개 시) 정답·해설과 내가 고른 선지가 틀린 이유 | `/student/exams/:id` |
+| 학생 | **약점 분석** — 지금까지 푼 모든 시험을 모아 6개 독해 영역·난이도·갈래별 정답률, 성적 추이, 약점 TOP 3와 학습 가이드, 오답 노트 | `/student/report` |
+
+- 로그인 화면의 **「학생 화면 체험하기」** 로 가입 없이 학생 화면을 볼 수 있습니다 (이미 푼 시험 2개 + 풀 수 있는 시험 1개). 선생님 체험 계정에는 학생 12명의 응시 결과가 있는 체험반이 들어 있습니다.
+- 학생 계정은 회원가입에서 직군 「학생」을 고르면 만들어지며, 선생님 기능(`/app`, 교사용 API)에는 접근할 수 없습니다.
+- 배포 시점의 지문·문항을 **스냅샷**으로 고정하므로, 원본 자료를 고치거나 지워도 성적은 그대로 유지됩니다. 응시 전 학생에게는 정답·해설이 빠진 문제지만 전달됩니다.
+- 약점 분석은 문항의 세부 유형(5지선다 출제 유형 · OX 관련 개념)을 **표현·서술 방식 / 시어·구절의 의미 / 작품 구성 요소 / 내용 이해·세부 정보 / 핵심 개념·관점 / <보기> 적용·감상** 6개 영역으로 묶어 계산합니다 (`src/lib/assessment.ts`).
+
 그 밖에: 랜딩페이지(인터랙티브 미리보기·실제 샘플 다운로드), 생성 샘플 갤러리, 요금제, 이용가이드, 이용약관(저작권법 제25조·제35조의5·제37조 반영 초안), 회원가입/로그인/**가입 없는 체험 계정**, 토큰(포인트) 원장과 충전.
 
 ---
@@ -84,12 +100,15 @@ src/
 │  ├─ (auth)/             로그인 · 회원가입
 │  ├─ (print)/            인쇄(PDF) 전용 레이아웃
 │  ├─ app/                워크스페이스 (/app/...)
+│  ├─ student/            학생 포털 (/student/...)
 │  └─ api/                REST 엔드포인트
 ├─ components/
 │  ├─ ui/                 shadcn 스타일 프리미티브 (Radix + Tailwind v4)
 │  ├─ marketing/          랜딩 섹션 (Hero 미리보기, 6대 기능, 3단계, 포맷, 요금제, 법적 안내, CTA)
 │  ├─ material/           자료 렌더러 (도식화·행간주·문항·OX·어휘·보고서·시험지) — 화면/샘플/인쇄 공용
-│  └─ app/                워크스페이스 (생성 마법사, OCR, 제본, 분석, 충전, 내비게이션)
+│  ├─ app/                워크스페이스 (생성 마법사, OCR, 제본, 분석, 충전, 내비게이션)
+│  ├─ classroom/          반·배포·성적 분석 (차트, 배포 다이얼로그)
+│  └─ student/            학생 포털 (응시 화면, 결과·오답 보기)
 ├─ lib/                   클라이언트·서버 공용: Zod 스키마, 카탈로그(단가·요금제), 한글 유틸, 샘플 데이터
 └─ server/                서버 전용 ("server-only")
    ├─ auth/               scrypt 비밀번호, 세션(토큰 해시 저장), Data Access Layer
@@ -97,9 +116,9 @@ src/
    ├─ ai/                 프롬프트, Claude 엔진, 데모 엔진, 파이프라인(후처리)
    ├─ ingest/             파일 → 텍스트
    ├─ export/             DocModel, HWPX 빌더, DOCX 렌더러, 다운로드 응답
-   └─ services/           users · points(원장) · materials · billing
+   └─ services/           users · points(원장) · materials · billing · classroom(반·배포·응시) · classroom-demo
 drizzle/                  SQL 마이그레이션
-tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서비스·원장)
+tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서비스·원장, 채점·분석, 반·배포 흐름)
 ```
 
 ### 데이터 모델
@@ -111,6 +130,9 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 | `materials` | `kind`(passage·exam_report·exam_set·ocr), 원문, 생성 설정, 생성 결과(JSON), 엔진, 사용 토큰 |
 | `point_transactions` | 토큰 원장 — 적립·차감·환불을 모두 기록하고 거래 후 잔액을 남김 |
 | `payments` | 충전 주문 (mock/toss, pending/paid/failed) |
+| `classes` · `class_members` | 선생님의 반(6자리 참여 코드)과 소속 학생 |
+| `assignments` | 반에 배포한 시험 — 지문·문항 스냅샷(JSON), 정답 공개 여부, 응시 중/마감 |
+| `submissions` | 학생 답안과 채점 결과 (시험당 학생 1회) |
 
 **토큰 흐름:** 생성 요청 → 트랜잭션으로 선차감(잔액 부족 시 402) → AI 생성 → 실패하면 같은 수량 자동 환불. 다운로드는 무료.
 
@@ -139,7 +161,7 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/auth/signup` · `/login` · `/logout` · `/guest` | 회원가입(토큰 30 지급) · 로그인 · 로그아웃 · 체험 계정 |
+| POST | `/api/auth/signup` · `/login` · `/logout` · `/guest` | 회원가입(선생님은 토큰 30 지급) · 로그인 · 로그아웃 · 체험 계정(`?role=student`면 학생) |
 | GET | `/api/auth/me` | 현재 사용자 |
 | GET · POST | `/api/materials` | 자료 목록(`?kind=&q=`) · 지문 자료 생성 |
 | GET · DELETE | `/api/materials/:id` | 자료 조회 · 삭제 |
@@ -149,6 +171,12 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 | POST | `/api/exams/analyze` · `/api/exams/compose` | 분석 보고서 · 모음 시험지 |
 | POST | `/api/billing/checkout` · `/api/billing/confirm` | 토큰 충전 · 토스페이먼츠 승인 |
 | GET | `/api/samples/:slug/export` | 공개 샘플 다운로드 |
+| GET · POST | `/api/classes` | (선생님) 반 목록 · 반 만들기 |
+| DELETE | `/api/classes/:id/members/:studentId` | (선생님) 학생 내보내기 |
+| POST | `/api/assignments` | (선생님) 자료를 반에 시험으로 배포 |
+| PATCH · DELETE | `/api/assignments/:id` | (선생님) 응시 마감·재개 · 삭제 |
+| POST | `/api/classes/join` | (학생) 참여 코드로 반 참여 |
+| POST | `/api/assignments/:id/submit` | (학생) 답안 제출 → 서버 채점 |
 | GET | `/api/health` | DB·AI 엔진 상태 |
 
 ---

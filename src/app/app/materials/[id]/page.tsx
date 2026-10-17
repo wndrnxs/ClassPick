@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { MaterialViewer } from "@/components/material/material-viewer";
+import { countGradable } from "@/lib/assessment";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireUser } from "@/server/auth/dal";
 import { HttpError } from "@/server/http";
@@ -30,6 +31,7 @@ async function Viewer({ params }: { params: PageProps<"/app/materials/[id]">["pa
         printBase: `/print/materials/${id}`,
         hasAudience: material.kind === "passage" || material.kind === "exam_set",
       }}
+      gradableCount={countGradable(material)}
     />
   );
 }

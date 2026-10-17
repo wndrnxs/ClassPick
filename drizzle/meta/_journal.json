@@ -15,6 +15,13 @@
       "when": 1792196413915,
       "tag": "0001_rename_pencils_to_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1792199329661,
+      "tag": "0002_classroom",
+      "breakpoints": true
     }
   ]
 }

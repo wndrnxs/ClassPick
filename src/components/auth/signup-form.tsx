@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Gift, Sparkles } from "lucide-react";
+import { Gift, GraduationCap, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function SignupForm() {
     setError(null);
     startTransition(async () => {
       try {
-        await api("/api/auth/signup", {
+        const res = await api<{ home: string }>("/api/auth/signup", {
           method: "POST",
           json: {
             name: form.get("name"),
@@ -38,8 +38,10 @@ export function SignupForm() {
             agreeTerms: agree,
           },
         });
-        toast.success(`가입을 환영합니다! 무료 토큰 ${SIGNUP_BONUS_TOKENS}개를 드렸어요.`);
-        router.push("/app/new");
+        toast.success(
+          role === "student" ? "가입을 환영합니다! 선생님께 받은 참여 코드를 입력해 주세요." : `가입을 환영합니다! 무료 토큰 ${SIGNUP_BONUS_TOKENS}개를 드렸어요.`,
+        );
+        router.push(role === "student" ? res.home : "/app/new");
         router.refresh();
       } catch (err) {
         setError((err as Error).message);
@@ -51,9 +53,15 @@ export function SignupForm() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight">무료로 시작하기</h1>
-        <p className="mt-2 flex items-center gap-1.5 text-muted-foreground">
-          <Gift className="size-4 text-amber" /> 가입 즉시 무료 체험 토큰 {SIGNUP_BONUS_TOKENS}개를 드려요.
-        </p>
+        {role === "student" ? (
+          <p className="mt-2 flex items-center gap-1.5 text-muted-foreground">
+            <GraduationCap className="size-4 text-emerald-600" /> 학생은 무료예요. 가입 후 선생님께 받은 참여 코드를 입력하세요.
+          </p>
+        ) : (
+          <p className="mt-2 flex items-center gap-1.5 text-muted-foreground">
+            <Gift className="size-4 text-amber" /> 가입 즉시 무료 체험 토큰 {SIGNUP_BONUS_TOKENS}개를 드려요.
+          </p>
+        )}
       </div>
       <form onSubmit={onSubmit} className="space-y-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -72,11 +80,12 @@ export function SignupForm() {
             <RadioChip value="teacher">학교 교사</RadioChip>
             <RadioChip value="instructor">학원 강사</RadioChip>
             <RadioChip value="other">기타</RadioChip>
+            <RadioChip value="student">학생</RadioChip>
           </RadioGroup>
         </div>
         <div className="space-y-2">
           <Label htmlFor="email">이메일</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" placeholder="teacher@school.kr" required />
+          <Input id="email" name="email" type="email" autoComplete="email" placeholder={role === "student" ? "student@school.kr" : "teacher@school.kr"} required />
         </div>
         <div className="space-y-2">
           <Label htmlFor="password">비밀번호</Label>

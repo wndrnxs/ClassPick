@@ -277,7 +277,7 @@ export const SignupInput = z.object({
   name: z.string().trim().min(1, "이름을 입력해 주세요.").max(40),
   email: z.string().trim().toLowerCase().email("이메일 형식을 확인해 주세요.").max(120),
   password: z.string().min(8, "비밀번호는 8자 이상이어야 합니다.").max(100),
-  role: z.enum(["teacher", "instructor", "other"]).default("teacher"),
+  role: z.enum(["teacher", "instructor", "other", "student"]).default("teacher"),
   organization: z.string().trim().max(80).default(""),
   agreeTerms: z.literal(true, { error: "이용약관 및 저작권 안내에 동의해 주세요." }),
 });
@@ -286,4 +286,32 @@ export type SignupInput = z.infer<typeof SignupInput>;
 export const LoginInput = z.object({
   email: z.string().trim().toLowerCase().email("이메일 형식을 확인해 주세요."),
   password: z.string().min(1, "비밀번호를 입력해 주세요."),
+});
+
+/* ------------------------------------------------------------------ */
+/* 학생 포털                                                            */
+/* ------------------------------------------------------------------ */
+
+export const CreateClassInput = z.object({
+  name: z.string().trim().min(1, "반 이름을 입력해 주세요.").max(40),
+});
+
+export const JoinClassInput = z.object({
+  code: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{6}$/, "참여 코드 6자리를 확인해 주세요."),
+});
+
+export const CreateAssignmentInput = z.object({
+  materialId: z.string().min(1),
+  classId: z.string().min(1, "배포할 반을 선택해 주세요."),
+  title: z.string().trim().min(1, "시험 제목을 입력해 주세요.").max(120),
+  revealAnswers: z.boolean().default(true),
+});
+
+export const SubmitAnswersInput = z.object({
+  answers: z.record(z.string(), z.union([z.number().int(), z.boolean()])),
+  durationSec: z.number().int().min(0).max(60 * 60 * 6).nullable().default(null),
 });

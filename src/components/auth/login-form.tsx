@@ -11,8 +11,8 @@ import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api-client";
 import { GuestButton } from "./guest-button";
 
-function safeNext(next: string | null) {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/app";
+function safeNext(next: string | null, fallback: string) {
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
 }
 
 export function LoginForm() {
@@ -27,8 +27,11 @@ export function LoginForm() {
     setError(null);
     startTransition(async () => {
       try {
-        await api("/api/auth/login", { method: "POST", json: { email: form.get("email"), password: form.get("password") } });
-        router.push(safeNext(params.get("next")));
+        const res = await api<{ home: string }>("/api/auth/login", {
+          method: "POST",
+          json: { email: form.get("email"), password: form.get("password") },
+        });
+        router.push(safeNext(params.get("next"), res.home));
         router.refresh();
       } catch (err) {
         setError((err as Error).message);
@@ -64,7 +67,10 @@ export function LoginForm() {
         <span className="relative z-10 bg-background px-3">또는</span>
         <span className="absolute inset-x-0 top-1/2 h-px bg-border" />
       </div>
-      <GuestButton highlight={params.get("guest") === "1"} />
+      <div className="grid gap-2">
+        <GuestButton highlight={params.get("guest") === "1"} />
+        <GuestButton role="student" />
+      </div>
       <p className="text-center text-sm text-muted-foreground">
         아직 계정이 없으신가요?{" "}
         <Link href="/signup" className="font-bold text-primary hover:underline">

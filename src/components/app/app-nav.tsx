@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookCopy, FolderOpen, Home, Coins, ScanText, Sparkles } from "lucide-react";
+import { BarChart3, BookCopy, ClipboardCheck, Coins, FolderOpen, Home, ScanText, Sparkles, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { APP_NAV } from "./nav-items";
@@ -15,6 +15,8 @@ const ICONS = {
   book: BookCopy,
   chart: BarChart3,
   coins: Coins,
+  users: Users,
+  clipboard: ClipboardCheck,
 };
 
 export function AppNavLinks({ onNavigate, activePath }: { onNavigate?: () => void; activePath?: string | null }) {

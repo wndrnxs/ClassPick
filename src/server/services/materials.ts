@@ -250,29 +250,32 @@ export async function composeExamSetMaterial(userId: string, input: ComposeExamI
   );
 }
 
-/** 체험 계정에 샘플 자료를 미리 채워 둡니다. */
-export async function seedSampleMaterials(userId: string) {
+/** 체험 계정에 샘플 자료를 미리 채워 둡니다. 샘플 slug → 생성된 자료 ID를 돌려줍니다. */
+export async function seedSampleMaterials(userId: string): Promise<Record<string, string>> {
   const base = Date.now();
   const db = await getDb();
+  const ids: Record<string, string> = {};
   const values = SAMPLES.map((sample, i) => {
     const types = Object.keys(sample.content) as MaterialType[];
     const at = new Date(base - (SAMPLES.length - i) * 60_000);
+    ids[sample.slug] = randomUUID();
     return {
-        id: randomUUID(),
-        userId,
-        kind: "passage",
-        title: sample.title,
-        author: sample.author,
-        sourceNote: sample.sourceNote,
-        sourceText: sample.passage,
-        settings: { ...sample.settings, genre: "auto" },
-        types,
-        content: sample.content,
-        engine: "none",
-        pointsSpent: 0,
-        createdAt: at,
-        updatedAt: at,
+      id: ids[sample.slug],
+      userId,
+      kind: "passage",
+      title: sample.title,
+      author: sample.author,
+      sourceNote: sample.sourceNote,
+      sourceText: sample.passage,
+      settings: { ...sample.settings, genre: "auto" },
+      types,
+      content: sample.content,
+      engine: "none",
+      pointsSpent: 0,
+      createdAt: at,
+      updatedAt: at,
     } satisfies typeof schema.materials.$inferInsert;
   });
   await db.insert(schema.materials).values(values).run();
+  return ids;
 }

@@ -36,7 +36,7 @@ describe("users & points", () => {
   it("grants the signup bonus and authenticates", async () => {
     const id = await signup("a@test.kr");
     expect(await s.points.getBalance(id)).toBe(30);
-    await expect(s.users.authenticate("a@test.kr", "password123")).resolves.toBe(id);
+    await expect(s.users.authenticate("a@test.kr", "password123")).resolves.toEqual({ id, role: "teacher" });
     await expect(s.users.authenticate("a@test.kr", "wrong-password")).rejects.toThrow();
     await expect(signup("a@test.kr")).rejects.toThrow(/이미 가입/);
   });

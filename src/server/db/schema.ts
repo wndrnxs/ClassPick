@@ -4,10 +4,12 @@
  * users ─┬─< sessions
  *        ├─< materials          (지문 자료 · 분석 보고서 · 모음 시험지 · OCR 문서)
  *        ├─< point_transactions (토큰 원장: 적립/차감/환불 이력)
- *        └─< payments           (토큰 충전 결제)
+ *        ├─< payments           (토큰 충전 결제)
+ *        ├─< classes ─< class_members >─ users(student)   (반 · 학생 명단)
+ *        └─< assignments ─< submissions                  (시험 배포 · 학생 응시 결과)
  */
 import { sql } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const createdAt = () =>
   integer("created_at", { mode: "timestamp_ms" })
@@ -19,7 +21,7 @@ export const users = sqliteTable("users", {
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
-  role: text("role", { enum: ["teacher", "instructor", "other"] }).notNull().default("teacher"),
+  role: text("role", { enum: ["teacher", "instructor", "other", "student"] }).notNull().default("teacher"),
   organization: text("organization").notNull().default(""),
   plan: text("plan", { enum: ["free", "standard", "academy"] }).notNull().default("free"),
   points: integer("points").notNull().default(0),
@@ -102,7 +104,91 @@ export const payments = sqliteTable("payments", {
   createdAt: createdAt(),
 });
 
+/* ------------------------------------------------------------------ */
+/* 학생 포털: 반 · 시험 배포 · 응시                                        */
+/* ------------------------------------------------------------------ */
+
+export const classes = sqliteTable(
+  "classes",
+  {
+    id: text("id").primaryKey(),
+    teacherId: text("teacher_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** 학생이 반에 참여할 때 입력하는 코드 (대문자·숫자 6자리) */
+    joinCode: text("join_code").notNull().unique(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("classes_teacher_idx").on(t.teacherId)],
+);
+
+export const classMembers = sqliteTable(
+  "class_members",
+  {
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    joinedAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.classId, t.studentId] }), index("class_members_student_idx").on(t.studentId)],
+);
+
+export const assignments = sqliteTable(
+  "assignments",
+  {
+    id: text("id").primaryKey(),
+    teacherId: text("teacher_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    classId: text("class_id")
+      .notNull()
+      .references(() => classes.id, { onDelete: "cascade" }),
+    /** 원본 자료 (삭제되어도 배포된 시험은 스냅샷으로 유지) */
+    materialId: text("material_id").references(() => materials.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    /** 배포 시점의 지문·문항 스냅샷 (JSON) */
+    snapshot: text("snapshot", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    /** 제출 후 학생에게 정답·해설 공개 여부 */
+    revealAnswers: integer("reveal_answers", { mode: "boolean" }).notNull().default(true),
+    status: text("status", { enum: ["open", "closed"] }).notNull().default("open"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("assignments_class_idx").on(t.classId), index("assignments_teacher_idx").on(t.teacherId)],
+);
+
+export const submissions = sqliteTable(
+  "submissions",
+  {
+    id: text("id").primaryKey(),
+    assignmentId: text("assignment_id")
+      .notNull()
+      .references(() => assignments.id, { onDelete: "cascade" }),
+    studentId: text("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 문항 ID → 학생 응답 (선지 번호 또는 O/X) */
+    answers: text("answers", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    correctCount: integer("correct_count").notNull(),
+    total: integer("total").notNull(),
+    /** 100점 만점 환산 점수 */
+    score: integer("score").notNull(),
+    durationSec: integer("duration_sec"),
+    submittedAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("submissions_assignment_student_unique").on(t.assignmentId, t.studentId),
+    index("submissions_student_idx").on(t.studentId),
+  ],
+);
+
 export type User = typeof users.$inferSelect;
 export type Material = typeof materials.$inferSelect;
 export type PointTransaction = typeof pointTransactions.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type ClassRow = typeof classes.$inferSelect;
+export type Assignment = typeof assignments.$inferSelect;
+export type Submission = typeof submissions.$inferSelect;

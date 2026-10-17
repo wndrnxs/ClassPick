@@ -13,7 +13,7 @@ export type SessionUser = {
   id: string;
   email: string;
   name: string;
-  role: "teacher" | "instructor" | "other";
+  role: "teacher" | "instructor" | "other" | "student";
   organization: string;
   plan: "free" | "standard" | "academy";
   points: number;
@@ -41,16 +41,41 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   };
 });
 
-/** 페이지용: 로그인하지 않았으면 로그인 페이지로 보냅니다. */
+export const isStudent = (user: Pick<SessionUser, "role">) => user.role === "student";
+
+/** 로그인 후 역할별 첫 화면 */
+export const homePathFor = (user: Pick<SessionUser, "role">) => (isStudent(user) ? "/student" : "/app");
+
+/**
+ * 페이지용(교사 워크스페이스): 로그인하지 않았으면 로그인으로, 학생이면 학생 화면으로 보냅니다.
+ */
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  if (isStudent(user)) redirect("/student");
   return user;
 }
 
-/** API용: 로그인하지 않았으면 401을 던집니다. */
+/** 페이지용(학생 포털): 학생 계정만 접근할 수 있습니다. */
+export async function requireStudent(): Promise<SessionUser> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/student");
+  if (!isStudent(user)) redirect("/app");
+  return user;
+}
+
+/** API용(교사 기능): 로그인하지 않았으면 401, 학생 계정이면 403. */
 export async function requireApiUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) throw new HttpError(401, "로그인이 필요합니다.");
+  if (isStudent(user)) throw new HttpError(403, "선생님 계정에서만 사용할 수 있는 기능입니다.");
+  return user;
+}
+
+/** API용(학생 기능) */
+export async function requireApiStudent(): Promise<SessionUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new HttpError(401, "로그인이 필요합니다.");
+  if (!isStudent(user)) throw new HttpError(403, "학생 계정에서만 사용할 수 있는 기능입니다.");
   return user;
 }
