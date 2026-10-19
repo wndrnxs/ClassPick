@@ -39,7 +39,9 @@ function Sheet({ head, page, total, columns, children }: { head: PaperHead; page
         {head.sub && <p className="mt-0.5 truncate text-center font-sans text-[0.75em] text-slate-600">{head.sub}</p>}
       </header>
       {/* 본문: 이 쪽에 해당하는 두 단만 보이도록 잘라 냄 */}
-      <div className="overflow-hidden" style={{ width: `${BODY_W}mm`, height: `${BODY_H - 3}mm`, marginTop: "3mm" }}>
+      <div className="relative overflow-hidden" style={{ width: `${BODY_W}mm`, height: `${BODY_H - 3}mm`, marginTop: "3mm" }}>
+        {/* 단 구분선: CSS column-rule은 양쪽 단에 내용이 있을 때만 그려지므로, 마지막 쪽처럼 오른쪽 단이 비어도 보이도록 직접 그림 */}
+        {columns === 2 && <div aria-hidden className="absolute inset-y-0 border-l border-black" style={{ left: `${(BODY_W - GAP) / 2 + GAP / 2}mm` }} />}
         <div
           className="paper-flow-cols"
           style={{
@@ -48,7 +50,6 @@ function Sheet({ head, page, total, columns, children }: { head: PaperHead; page
             columnCount: columns,
             columnGap: `${GAP}mm`,
             columnFill: "auto",
-            columnRule: columns === 2 ? "1px solid #000" : undefined,
             transform: page ? `translateX(-${page * (BODY_W + GAP)}mm)` : undefined,
           }}
         >
