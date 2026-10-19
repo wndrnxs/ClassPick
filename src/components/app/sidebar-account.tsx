@@ -4,7 +4,7 @@ import { Coins, Plus } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber } from "@/lib/utils";
-import { requireUser } from "@/server/auth/dal";
+import { isAdmin, requireUser } from "@/server/auth/dal";
 import { countTeacherOpenInquiries } from "@/server/services/inquiries";
 import { AppNav } from "./app-nav";
 import { MobileNav } from "./mobile-nav";
@@ -30,7 +30,7 @@ export async function SidebarAccount() {
           <span className="ml-1 text-sm font-semibold text-muted-foreground">개</span>
         </p>
       </div>
-      <UserMenu name={user.name} email={user.email} isGuest={user.isGuest} />
+      <UserMenu name={user.name} email={user.email} isGuest={user.isGuest} isAdmin={isAdmin(user)} />
     </div>
   );
 }

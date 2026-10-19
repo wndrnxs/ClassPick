@@ -71,6 +71,8 @@ npm run typecheck            # 라우트 타입 생성 + tsc
 | `CLASSPICK_AI_MODE` | `auto` | `auto` / `claude` / `demo` |
 | `CLASSPICK_AI_MODEL` | `claude-opus-5-5` | 사용할 Claude 모델 |
 | `CLASSPICK_AI_EFFORT` | `high` | `low`~`max` (출제 품질과 비용의 균형) |
+| `CLASSPICK_ADMIN_EMAILS` | – | AI 사용량·원가 화면(`/app/usage`)에 들어갈 선생님 계정 이메일, 쉼표로 구분 |
+| `CLASSPICK_USD_KRW` | `1400` | 원가를 원화로 보여 줄 때의 환율(원/달러) |
 | `DATABASE_PATH` | `./data/classpick.db` | SQLite(libSQL) 파일 경로 |
 | `PAYMENT_PROVIDER` | `mock` | `mock`(테스트 결제) / `toss` |
 | `TOSS_SECRET_KEY` | – | 토스페이먼츠 결제 승인용 시크릿 키 |
@@ -137,6 +139,7 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 | `materials` | `kind`(passage·exam_report·exam_set·ocr), 원문, 생성 설정, 생성 결과(JSON), 엔진, 사용 토큰 |
 | `point_transactions` | 토큰 원장 — 적립·차감·환불을 모두 기록하고 거래 후 잔액을 남김 |
 | `payments` | 충전 주문 (mock/toss, pending/paid/failed) |
+| `ai_usage` | Claude API 호출별 토큰 사용량 · 추정 원가 · 작업 성공 여부 (운영자용) |
 | `classes` · `class_members` | 선생님의 반(6자리 참여 코드)과 소속 학생 |
 | `assignments` | 반에 배포한 시험 — 지문·문항 스냅샷(JSON), 정답 공개 여부, 제한 시간, 응시 중/마감 |
 | `submissions` | 학생 답안, 채점 결과, 응시 시간, 문항별 풀이 시간 (시험당 학생 1회) |
@@ -156,6 +159,16 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 - 시스템 프롬프트와 지문 블록에 `cache_control`을 두어 같은 지문의 반복 생성 비용을 줄입니다.
 - **결정적 후처리**: 초성은 모델이 아닌 서버가 계산(`toChoseong`), 5지선다는 선지 5개·정답 범위·번호 기호를 정규화, 문항 수는 설정값으로 보정.
 - **OCR**: 텍스트 레이어가 있는 문서는 AI 없이 무료 추출, 스캔 PDF·이미지만 Claude 비전으로 전사(토큰 1개).
+
+### AI 사용량 · 원가 기록 (운영자)
+
+- Claude API를 호출할 때마다 **모델, 입력·출력·캐시 토큰, 응답 시간, 결과(성공·거절·길이 초과)**를 `ai_usage` 테이블에 기록하고, 기록 시점 단가로 **추정 원가**를 계산해 저장합니다. 단가표는 `src/server/ai/usage.ts`의 `MODEL_PRICES` 한 곳에서 관리합니다.
+- AI의 사고(thinking) 토큰은 출력 토큰으로 청구되므로 출력 토큰에 포함됩니다.
+- 생성에 실패해 토큰을 환불한 작업도 API 요금은 나가므로 함께 기록합니다. 여러 유형을 동시에 생성하다 하나가 실패해도 나머지 호출이 끝날 때까지 기다린 뒤 기록합니다.
+- **운영자 화면** `/app/usage`: 기간별(7일·30일·전체) 합계, 기능별 평균 토큰·원가·시간, 최근 작업별 **원가 vs 차감 토큰 매출(토큰 팩 단가 기준)과 마진**.
+  - `CLASSPICK_ADMIN_EMAILS`에 등록한 선생님 계정만 들어갈 수 있고(그 외에는 404), 사용자 메뉴에 「AI 사용량 · 원가」가 나타납니다.
+  - 데모 엔진(API 키 없음)은 비용이 없으므로 기록하지 않습니다.
+- 거절 시 서버가 대체 모델로 다시 실행한 경우에는 최종 응답 모델 기준으로 계산하므로 근사치입니다.
 
 ## 5. 문서 내보내기
 

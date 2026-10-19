@@ -25,6 +25,7 @@ import {
   PASSAGE_SYSTEM_PROMPT,
 } from "./prompts";
 import type { AiEngine, PassageContext, SectionOutput } from "./types";
+import { usageFromMessage, type UsageFeature, type UsageLog, type UsageStatus } from "./usage";
 
 const SECTION_SCHEMAS = {
   structure: StructureSchema,
@@ -59,10 +60,13 @@ function toHttpError(err: unknown): never {
 }
 
 async function structuredCall<T>(
+  feature: UsageFeature,
+  log: UsageLog | undefined,
   schema: z.ZodType<T>,
   system: string,
   content: Anthropic.Beta.BetaContentBlockParam[],
 ): Promise<T> {
+  const started = Date.now();
   try {
     const stream = getClient().beta.messages.stream({
       model: env.aiModel,
@@ -76,6 +80,10 @@ async function structuredCall<T>(
       messages: [{ role: "user", content }],
     });
     const message = await stream.finalMessage();
+    // 거절·길이 초과로 실패해도 요금은 청구되므로 판정 전에 먼저 기록합니다.
+    const status: UsageStatus =
+      message.stop_reason === "refusal" ? "refusal" : message.stop_reason === "max_tokens" ? "max_tokens" : message.parsed_output ? "ok" : "invalid_output";
+    log?.add(usageFromMessage(feature, message, Date.now() - started, status));
     if (message.stop_reason === "refusal") {
       throw new HttpError(422, "AI가 이 지문에 대한 자료 생성을 진행하지 못했습니다. 지문 내용을 확인해 주세요.");
     }
@@ -94,23 +102,23 @@ async function structuredCall<T>(
 export const claudeEngine: AiEngine = {
   name: "claude",
 
-  async generateSection<T extends MaterialType>(type: T, ctx: PassageContext) {
+  async generateSection<T extends MaterialType>(type: T, ctx: PassageContext, log?: UsageLog) {
     const schema = SECTION_SCHEMAS[type] as unknown as z.ZodType<SectionOutput[T]>;
-    return structuredCall(schema, PASSAGE_SYSTEM_PROMPT, [
+    return structuredCall(type, log, schema, PASSAGE_SYSTEM_PROMPT, [
       // 지문 블록을 앞에 두어 같은 지문에 대한 후속 요청이 캐시를 재사용하도록 합니다.
       { type: "text", text: `<passage>\n${ctx.passage}\n</passage>`, cache_control: { type: "ephemeral" } },
       { type: "text", text: buildPassageUserPrompt(type, ctx) },
     ]);
   },
 
-  async analyzeExam(input) {
-    return structuredCall(ExamReportSchema, EXAM_SYSTEM_PROMPT, [
+  async analyzeExam(input, log) {
+    return structuredCall("exam_report", log, ExamReportSchema, EXAM_SYSTEM_PROMPT, [
       { type: "text", text: `<exam>\n${input.examText}\n</exam>` },
       { type: "text", text: buildExamUserPrompt(input) },
     ]);
   },
 
-  async ocr(file: UploadedFile) {
+  async ocr(file: UploadedFile, log?: UsageLog) {
     const mediaType = mediaTypeOf(file);
     if (!mediaType) throw new HttpError(415, "OCR을 지원하지 않는 파일 형식입니다.");
     const data = Buffer.from(file.bytes).toString("base64");
@@ -118,6 +126,7 @@ export const claudeEngine: AiEngine = {
       mediaType === "application/pdf"
         ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
         : { type: "image", source: { type: "base64", media_type: mediaType, data } };
+    const started = Date.now();
     try {
       const stream = getClient().beta.messages.stream({
         model: env.aiModel,
@@ -129,6 +138,9 @@ export const claudeEngine: AiEngine = {
         messages: [{ role: "user", content: [source, { type: "text", text: OCR_PROMPT }] }],
       });
       const message = await stream.finalMessage();
+      log?.add(
+        usageFromMessage("ocr", message, Date.now() - started, message.stop_reason === "refusal" ? "refusal" : message.stop_reason === "max_tokens" ? "max_tokens" : "ok"),
+      );
       if (message.stop_reason === "refusal") throw new HttpError(422, "이 문서는 OCR 처리할 수 없습니다.");
       const text = message.content
         .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")

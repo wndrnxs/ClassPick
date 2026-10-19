@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Coins, UserRound } from "lucide-react";
+import { Activity, LogOut, Coins, UserRound } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/lib/api-client";
 
-export function UserMenu({ name, email, isGuest }: { name: string; email: string; isGuest: boolean }) {
+export function UserMenu({ name, email, isGuest, isAdmin = false }: { name: string; email: string; isGuest: boolean; isAdmin?: boolean }) {
   const router = useRouter();
   async function logout() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -47,6 +47,13 @@ export function UserMenu({ name, email, isGuest }: { name: string; email: string
             <Coins /> 토큰 충전 · 사용 내역
           </Link>
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/app/usage">
+              <Activity /> AI 사용량 · 원가 (운영자)
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={logout}>
           <LogOut /> 로그아웃
         </DropdownMenuItem>

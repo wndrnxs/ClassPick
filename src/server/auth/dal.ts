@@ -1,10 +1,11 @@
 import "server-only";
 
 import { eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
 import { getDb, schema } from "@/server/db/client";
+import { env } from "@/server/env";
 import { HttpError } from "@/server/http";
 import { readSessionUserId } from "./session";
 
@@ -53,6 +54,16 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (isStudent(user)) redirect("/student");
+  return user;
+}
+
+/** 운영자: 환경 변수 CLASSPICK_ADMIN_EMAILS에 등록된 선생님 계정 */
+export const isAdmin = (user: Pick<SessionUser, "email" | "role">) => !isStudent(user) && env.adminEmails.includes(user.email.toLowerCase());
+
+/** 페이지용(운영자 화면): 운영자가 아니면 페이지가 없는 것처럼 보입니다. */
+export async function requireAdmin(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!isAdmin(user)) notFound();
   return user;
 }
 

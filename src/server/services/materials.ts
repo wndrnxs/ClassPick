@@ -22,6 +22,7 @@ import { getDb, schema } from "@/server/db/client";
 import type { Material } from "@/server/db/schema";
 import { HttpError } from "@/server/http";
 import { extractTextLocally, type UploadedFile } from "@/server/ingest/extract";
+import { withUsageLog } from "./ai-usage";
 import { creditPoints, debitPoints } from "./points";
 
 /* ------------------------------------------------------------------ */
@@ -137,7 +138,7 @@ export async function createPassageMaterial(userId: string, input: CreateMateria
   const cost = costOf(types);
   const label = types.map((t) => MATERIAL_TYPE_META[t].shortLabel).join("·");
   return withPoints(userId, cost, `자료 생성 (${label})`, id, async () => {
-    const generated = await generatePassageContent({ ...input, types });
+    const generated = await withUsageLog(userId, id, "passage", (log) => generatePassageContent({ ...input, types }, log));
     return insertMaterial({
       id,
       userId,
@@ -176,7 +177,7 @@ export async function createOcrMaterial(userId: string, file: UploadedFile): Pro
   // 스캔 PDF·이미지는 AI OCR (토큰 차감, 실패 시 환불)
   const cost = FEATURE_COSTS.ocrPerFile;
   return withPoints(userId, cost, `스마트 OCR (${file.name})`, id, async () => {
-    const { engine, text } = await ocrWithAi(file);
+    const { engine, text } = await withUsageLog(userId, id, "ocr", (log) => ocrWithAi(file, log));
     return save({ fileName: file.name, method: "ai-ocr", text }, engine, cost);
   });
 }
@@ -185,7 +186,7 @@ export async function createExamReportMaterial(userId: string, input: AnalyzeExa
   const id = randomUUID();
   const cost = FEATURE_COSTS.examReport;
   return withPoints(userId, cost, "시험지 분석 보고서", id, async () => {
-    const { engine, report } = await analyzeExamPaper(input);
+    const { engine, report } = await withUsageLog(userId, id, "exam_report", (log) => analyzeExamPaper(input, log));
     if (input.examTitle) report.exam_title = input.examTitle;
     return insertMaterial({
       id,

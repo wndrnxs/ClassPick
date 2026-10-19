@@ -5,13 +5,14 @@
  *        ├─< materials          (지문 자료 · 분석 보고서 · 모음 시험지 · OCR 문서)
  *        ├─< point_transactions (토큰 원장: 적립/차감/환불 이력)
  *        ├─< payments           (토큰 충전 결제)
+ *        ├─< ai_usage           (Claude API 호출별 토큰 사용량 · 추정 원가 — 운영자용)
  *        ├─< classes ─< class_members >─ users(student)   (반 · 학생 명단)
  *        └─< assignments ─┬─< submissions                (시험 배포 · 학생 응시 결과)
  *                         ├─< exam_starts                (응시 시작 시각 · 제한 시간 계산)
  *                         └─< inquiries ─< inquiry_messages (문항 질문 · 선생님 답변)
  */
 import { sql } from "drizzle-orm";
-import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const createdAt = () =>
   integer("created_at", { mode: "timestamp_ms" })
@@ -253,6 +254,39 @@ export const inquiryMessages = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("inquiry_messages_inquiry_idx").on(t.inquiryId)],
+);
+
+/**
+ * AI 사용량: Claude API 호출 1건 = 1행. 실패한 생성도 요금이 나가므로 기록합니다.
+ * ref_id는 그 작업으로 만들려던 자료 ID — 실패하면 자료가 없을 수 있어 외래 키를 걸지 않습니다.
+ */
+export const aiUsage = sqliteTable(
+  "ai_usage",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    refId: text("ref_id").notNull(),
+    /** 작업 종류: passage(지문 자료) · exam_report · ocr */
+    job: text("job", { enum: ["passage", "exam_report", "ocr"] }).notNull(),
+    /** 호출 단위: 자료 유형(structure·mcq…) 또는 exam_report · ocr */
+    feature: text("feature").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+    cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+    /** 기록 시점 단가로 계산한 추정 원가 (알 수 없는 모델이면 null) */
+    costUsd: real("cost_usd"),
+    durationMs: integer("duration_ms").notNull(),
+    /** 호출 결과: ok · refusal · max_tokens · invalid_output */
+    status: text("status").notNull(),
+    /** 작업 전체(자료 생성)가 성공했는지 — 실패하면 토큰은 환불되지만 API 요금은 나감 */
+    jobSucceeded: integer("job_succeeded", { mode: "boolean" }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ai_usage_created_idx").on(t.createdAt), index("ai_usage_ref_idx").on(t.refId)],
 );
 
 export type User = typeof users.$inferSelect;

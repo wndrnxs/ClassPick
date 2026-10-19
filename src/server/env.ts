@@ -13,6 +13,13 @@ export const env = {
   paymentProvider: (process.env.PAYMENT_PROVIDER ?? "mock") as "mock" | "toss",
   tossSecretKey: process.env.TOSS_SECRET_KEY ?? "",
   isProduction: process.env.NODE_ENV === "production",
+  /** 운영자 화면(/app/usage)에 들어갈 수 있는 이메일 (쉼표로 구분) */
+  adminEmails: (process.env.CLASSPICK_ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+  /** 원가를 원화로 보여 줄 때 쓰는 환율 (원/달러) */
+  usdKrw: Number(process.env.CLASSPICK_USD_KRW ?? 1400) || 1400,
 };
 
 export function aiEngine(): "claude" | "demo" {

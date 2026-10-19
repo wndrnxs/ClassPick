@@ -14,6 +14,7 @@ import type { UploadedFile } from "@/server/ingest/extract";
 import { claudeEngine } from "./claude-engine";
 import { demoEngine } from "./demo-engine";
 import type { AiEngine, PassageContext, SectionOutput } from "./types";
+import type { UsageLog } from "./usage";
 
 export function getEngine(): AiEngine {
   return aiEngine() === "claude" ? claudeEngine : demoEngine;
@@ -68,7 +69,7 @@ function postProcess<T extends MaterialType>(type: T, out: SectionOutput[T], ctx
 }
 
 /** 선택한 자료 유형들을 병렬로 생성합니다. 한 유형이라도 실패하면 전체를 실패로 처리합니다(토큰 환불). */
-export async function generatePassageContent(input: CreateMaterialInput) {
+export async function generatePassageContent(input: CreateMaterialInput, log?: UsageLog) {
   const engine = getEngine();
   const ctx: PassageContext = {
     passage: input.passage,
@@ -77,24 +78,29 @@ export async function generatePassageContent(input: CreateMaterialInput) {
     sourceNote: input.sourceNote,
     settings: input.settings,
   };
-  const entries = await Promise.all(
-    input.types.map(async (type) => [type, postProcess(type, await engine.generateSection(type, ctx), ctx)] as const),
+  // 하나가 실패해도 나머지 호출은 이미 요금이 나가는 중이므로, 모두 끝난 뒤 실패 처리합니다(사용량 기록 누락 방지).
+  const settled = await Promise.allSettled(
+    input.types.map(async (type) => [type, postProcess(type, await engine.generateSection(type, ctx, log), ctx)] as const),
   );
+  const entries = settled.map((r) => {
+    if (r.status === "rejected") throw r.reason;
+    return r.value;
+  });
   const content = Object.fromEntries(entries) as PassageContent;
   const title = input.title || content.structure?.title || input.passage.split("\n")[0].slice(0, 24).trim();
   const author = input.author || (content.structure?.author && content.structure.author !== "미상" ? content.structure.author : "");
   return { engine: engine.name, content, title, author };
 }
 
-export async function analyzeExamPaper(input: AnalyzeExamInput): Promise<{ engine: AiEngine["name"]; report: ExamReport }> {
+export async function analyzeExamPaper(input: AnalyzeExamInput, log?: UsageLog): Promise<{ engine: AiEngine["name"]; report: ExamReport }> {
   const engine = getEngine();
-  const report = await engine.analyzeExam(input);
+  const report = await engine.analyzeExam(input, log);
   report.questions.sort((a, b) => a.number - b.number);
   return { engine: engine.name, report };
 }
 
 /** 텍스트 레이어가 없는 스캔 PDF·이미지를 AI OCR로 변환합니다. */
-export async function ocrWithAi(file: UploadedFile): Promise<{ engine: AiEngine["name"]; text: string }> {
+export async function ocrWithAi(file: UploadedFile, log?: UsageLog): Promise<{ engine: AiEngine["name"]; text: string }> {
   const engine = getEngine();
-  return { engine: engine.name, text: await engine.ocr(file) };
+  return { engine: engine.name, text: await engine.ocr(file, log) };
 }
