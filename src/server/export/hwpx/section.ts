@@ -181,7 +181,7 @@ function writeBlock(w: SectionWriter, block: Block) {
       w.paragraph(PARA.heading, [{ charPr: block.level === 1 ? CHAR.h1 : CHAR.h2, text: block.text }]);
       break;
     case "paragraph": {
-      const paraPr = block.align === "center" ? PARA.center : block.indent ? PARA.indent : PARA.body;
+      const paraPr = block.align === "center" ? PARA.center : block.align === "right" ? PARA.right : block.indent ? PARA.indent : PARA.body;
       w.paragraph(
         paraPr,
         block.runs.map((r) => ({ charPr: charOf(r), text: r.text })),
@@ -213,7 +213,7 @@ function writeBlock(w: SectionWriter, block: Block) {
           typeof line === "string" ? cellText(line, CHAR.body) : line.map((r) => ({ text: r.text, charPr: charOf(r) })),
         ),
       ];
-      w.table([{ cells: [texts], header: false, border: block.tone === "plain" ? BORDER.table : BORDER.box }], [1], PARA.passage);
+      w.table([{ cells: [texts], header: false, border: block.tone === "plain" ? BORDER.table : BORDER.box }], [1], block.indentFirst ? PARA.passageIndent : PARA.passage);
       break;
     }
     case "pageBreak":

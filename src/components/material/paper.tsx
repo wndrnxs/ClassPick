@@ -1,14 +1,17 @@
 /**
- * 시험지 형식(2단) 문서 — 수능 문제지처럼 한 쪽을 두 단으로 나눠 촘촘하게 보여 줍니다.
- * 훅 없음 → 서버/클라이언트/인쇄 화면 공용. 화면이 좁으면(모바일) 1단으로 보입니다.
+ * 시험지 형식 문서 — 수능 국어 영역 문제지처럼
+ *   [1～3] 다음 글을 읽고 물음에 답하시오. → 지문 상자 → 문항(1. … ①~⑤) → (교사용 정리 자료)
+ * 순서로 흐르고, 쪽마다 왼쪽 단을 먼저 채운 뒤 오른쪽 단으로 넘어갑니다 (paper-pages.tsx).
  */
-import { MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER } from "@/lib/catalog";
+import { MATERIAL_TYPE_META } from "@/lib/catalog";
 import type { MaterialDTO } from "@/lib/material-dto";
+import { passageKind, passageLayout } from "@/lib/passage-layout";
 import type { Annotation, ExamSet, Mcq, McqQuestion, Ox, PassageContent, ShortAnswer, Structure } from "@/lib/schemas";
 import { DIFFICULTIES, SCHOOL_LEVELS } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
-import { RichText } from "./rich-text";
+import { PaperPages } from "./paper-pages";
+import { RichRuns } from "./rich-text";
 import { CIRCLED } from "./sections";
 
 const ROMAN = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
@@ -20,48 +23,32 @@ export const hasPaperLayout = (m: MaterialDTO): m is PaperMaterial => m.kind !==
 /* 공통 부품                                                            */
 /* ------------------------------------------------------------------ */
 
-function PaperHeader({ title, sub, right }: { title: string; sub?: string; right?: string }) {
-  return (
-    <header className="mb-4 border-b-2 border-black pb-2">
-      <div className="flex items-end justify-between gap-3">
-        <p className="min-w-0 text-[0.8em] text-slate-600">{sub}</p>
-        {right && <span className="shrink-0 rounded-md border-2 border-black px-2 py-0.5 text-[0.8em] font-bold">{right}</span>}
-      </div>
-      <h1 className="mt-1 text-center font-sans text-[1.9em] leading-tight font-black tracking-tight text-balance">{title}</h1>
-    </header>
-  );
-}
-
-/**
- * 단 나눔 — 인쇄할 때는 문서 전체가 쪽마다 왼쪽 단 → 오른쪽 단으로 흐르고,
- * 화면에서는 끝없이 긴 단이 되지 않도록 단원(Section)마다 2단으로 나눕니다.
- */
-function Columns({ columns, children }: { columns: 1 | 2; children: React.ReactNode }) {
-  return <div className={cn(columns === 2 && "paper-cols-print")}>{children}</div>;
-}
-
-function Section({ title, columns, children }: { title?: React.ReactNode; columns: 1 | 2; children: React.ReactNode }) {
-  return (
-    <section className="mt-5 first:mt-0">
-      {title && <SectionTitle>{title}</SectionTitle>}
-      <div className={cn(columns === 2 && "paper-cols-screen")}>{children}</div>
-    </section>
-  );
-}
-
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="paper-keep mb-2 border-b border-black pb-0.5 font-sans text-[0.95em] font-extrabold">{children}</h2>;
+  return <h2 className="paper-keep mt-5 mb-2 border-b border-black pb-0.5 font-sans text-[0.95em] font-extrabold">{children}</h2>;
 }
 
-function Instruction({ children }: { children: React.ReactNode }) {
-  return <p className="paper-keep mb-2 font-sans text-[0.92em] font-bold">{children}</p>;
+/** 발문 묶음 안내: [1～3] 다음 글을 읽고 물음에 답하시오. */
+function Instruction({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <p className={cn("paper-keep mb-2 font-sans text-[0.95em] font-bold", className)}>{children}</p>;
 }
 
-function PassageBox({ text, source }: { text: string; source?: string }) {
+const rangeLabel = (start: number, count: number) => (count > 1 ? `[${start}～${start + count - 1}] ` : count === 1 ? `[${start}] ` : "");
+
+/** 지문 상자 — 산문은 문단 첫 줄 들여쓰기, 운문은 행·연 그대로 (수능 문제지 형식) */
+function PassageBox({ text, source, genre }: { text: string; source?: string; genre?: string }) {
+  const kind = passageKind(text, genre);
   return (
-    <div className="mb-3">
-      <div className="paper-box passage border border-black px-[0.9em] py-[0.6em] whitespace-pre-line [text-align:justify]">
-        <RichText text={text} />
+    <div className="mb-4">
+      <div className="paper-box passage border border-black px-[0.9em] py-[0.55em] leading-[1.75]">
+        {passageLayout(text, kind).map((line, i) =>
+          "gap" in line ? (
+            <div key={i} aria-hidden className="h-[0.9em]" />
+          ) : (
+            <p key={i} className={cn(line.indent ? "indent-[1em] [text-align:justify]" : "pl-[1em] -indent-[1em]")}>
+              <RichRuns runs={line.runs} />
+            </p>
+          ),
+        )}
       </div>
       {source && <p className="mt-1 text-right text-[0.85em]">- {source} -</p>}
     </div>
@@ -305,7 +292,6 @@ function AnnotationPaper({ c }: { c: Annotation }) {
 function VocabPaper({ c, showAnswers }: { c: NonNullable<PassageContent["vocab"]>; showAnswers: boolean }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[0.92em]">초성과 뜻풀이를 보고 알맞은 어휘를 쓰시오.</p>
       {c.items.map((v, i) => (
         <div key={i} className="paper-q">
           <p className="pl-[1.6em] -indent-[1.6em]">
@@ -323,41 +309,40 @@ function VocabPaper({ c, showAnswers }: { c: NonNullable<PassageContent["vocab"]
   );
 }
 
-function PassagePaper({ m, showAnswers, columns }: { m: Extract<MaterialDTO, { kind: "passage" }>; showAnswers: boolean; columns: 1 | 2 }) {
-  const s = m.settings;
-  const sub = [
-    m.author,
-    s.schoolLevel ? `${SCHOOL_LEVELS[s.schoolLevel]}${s.grade ? ` ${s.grade}` : ""}` : "",
-    s.difficulty ? `난이도 ${DIFFICULTIES[s.difficulty]}` : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const types = MATERIAL_TYPE_ORDER.filter((t) => m.content[t]);
+function PassageFlow({ m, showAnswers }: { m: Extract<MaterialDTO, { kind: "passage" }>; showAnswers: boolean }) {
   const c = m.content;
   const source = m.sourceNote || (m.author ? `${m.author}, 「${m.title}」` : `「${m.title}」`);
+  const genre = [m.settings.genre !== "auto" ? m.settings.genre : "", c.structure?.genre].filter(Boolean).join(" ");
+  const mcqCount = c.mcq?.questions.length ?? 0;
+  // 수업 정리 자료(도식화·행간주)는 문항 뒤에
+  const notes = (["structure", "annotation"] as const).filter((t) => c[t]);
   return (
     <>
-      <PaperHeader title={m.title} sub={sub} right={showAnswers ? "교사용" : "학생용"} />
-      <Columns columns={columns}>
-        <Section title="지문" columns={columns}>
-          <PassageBox text={m.sourceText} source={source} />
-        </Section>
-        {types.map((t, i) => (
-          <Section key={t} columns={columns} title={`${ROMAN[i]}. ${MATERIAL_TYPE_META[t].label}`}>
-            {t === "structure" && c.structure && <StructurePaper c={c.structure} />}
-            {t === "annotation" && c.annotation && <AnnotationPaper c={c.annotation} />}
-            {t === "mcq" && c.mcq && <McqList data={c.mcq} showAnswers={showAnswers} />}
-            {t === "short_answer" && c.short_answer && <ShortAnswerList data={c.short_answer} showAnswers={showAnswers} />}
-            {t === "ox" && c.ox && (
-              <>
-                <p className="mb-1 text-[0.92em]">다음 진술이 윗글의 내용과 맞으면 O, 틀리면 X 표시하시오.</p>
-                <OxList data={c.ox} showAnswers={showAnswers} />
-              </>
-            )}
-            {t === "vocab" && c.vocab && <VocabPaper c={c.vocab} showAnswers={showAnswers} />}
-          </Section>
-        ))}
-      </Columns>
+      <Instruction>{rangeLabel(1, mcqCount)}다음 글을 읽고 물음에 답하시오.</Instruction>
+      <PassageBox text={m.sourceText} source={source} genre={genre} />
+      {c.mcq && <McqList data={c.mcq} showAnswers={showAnswers} />}
+      {c.short_answer && <ShortAnswerList data={c.short_answer} showAnswers={showAnswers} />}
+      {c.ox && (
+        <div className="mb-4">
+          <Instruction>[OX] 다음 진술이 윗글의 내용과 맞으면 O, 틀리면 X 표시하시오.</Instruction>
+          <OxList data={c.ox} showAnswers={showAnswers} />
+        </div>
+      )}
+      {c.vocab && (
+        <div className="mb-4">
+          <Instruction>[어휘] 초성과 뜻풀이를 보고 알맞은 어휘를 쓰시오.</Instruction>
+          <VocabPaper c={c.vocab} showAnswers={showAnswers} />
+        </div>
+      )}
+      {notes.map((t, i) => (
+        <section key={t}>
+          <SectionTitle>
+            {ROMAN[i]}. {MATERIAL_TYPE_META[t].label}
+          </SectionTitle>
+          {t === "structure" && c.structure && <StructurePaper c={c.structure} />}
+          {t === "annotation" && c.annotation && <AnnotationPaper c={c.annotation} />}
+        </section>
+      ))}
     </>
   );
 }
@@ -366,7 +351,7 @@ function PassagePaper({ m, showAnswers, columns }: { m: Extract<MaterialDTO, { k
 /* 모음 시험지                                                           */
 /* ------------------------------------------------------------------ */
 
-function ExamSetPaper({ exam, showAnswers, columns }: { exam: ExamSet; showAnswers: boolean; columns: 1 | 2 }) {
+function ExamSetFlow({ exam, showAnswers }: { exam: ExamSet; showAnswers: boolean }) {
   // 문항 번호는 지문 순서대로 이어집니다 (선택형·서술형 각각).
   const sections = exam.sections.map((sec, i) => {
     const before = exam.sections.slice(0, i);
@@ -376,13 +361,8 @@ function ExamSetPaper({ exam, showAnswers, columns }: { exam: ExamSet; showAnswe
   const allMcq = exam.sections.flatMap((s) => s.mcq);
   return (
     <>
-      <PaperHeader
-        title={exam.title}
-        sub={[exam.school, exam.grade, exam.timeLimit ? `${exam.timeLimit}분` : ""].filter(Boolean).join(" · ")}
-        right={showAnswers ? "교사용" : "성명 ________"}
-      />
       {exam.instructions.length > 0 && (
-        <ol className="mb-4 border border-black px-3 py-1.5 text-[0.88em]">
+        <ol className="paper-q mb-4 border border-black px-3 py-1.5 text-[0.88em]">
           {exam.instructions.map((x, i) => (
             <li key={i}>
               {i + 1}. {x}
@@ -390,37 +370,32 @@ function ExamSetPaper({ exam, showAnswers, columns }: { exam: ExamSet; showAnswe
           ))}
         </ol>
       )}
-      <Columns columns={columns}>
-        {sections.map(({ sec, start }, idx) => {
-          const n = sec.mcq.length;
-          const range = n > 1 ? `[${start.mcq}～${start.mcq + n - 1}]` : n === 1 ? `[${start.mcq}]` : "";
-          return (
-            <Section key={`${sec.materialId}-${idx}`} columns={columns}>
-              <Instruction>{range} 다음 글을 읽고 물음에 답하시오.</Instruction>
-              <PassageBox text={sec.passage.text} source={sec.passage.author ? `${sec.passage.author}, 「${sec.passage.title}」` : `「${sec.passage.title}」`} />
-              <McqList data={{ questions: sec.mcq }} showAnswers={showAnswers} start={start.mcq} />
-              {sec.short_answer.length > 0 && <ShortAnswerList data={{ questions: sec.short_answer }} showAnswers={showAnswers} start={start.sa} />}
-              {sec.ox.length > 0 && (
-                <>
-                  <p className="mb-1 text-[0.92em]">다음 진술이 윗글의 내용과 맞으면 O, 틀리면 X 표시하시오.</p>
-                  <OxList data={{ items: sec.ox }} showAnswers={showAnswers} />
-                </>
-              )}
-            </Section>
-          );
-        })}
-        {showAnswers && allMcq.length > 0 && (
-          <Section title="빠른 정답표" columns={1}>
-            <p className="paper-q font-sans tabular-nums">
-              {allMcq.map((q, i) => (
-                <span key={i} className="mr-3 inline-block">
-                  {i + 1}. {CIRCLED[q.answer - 1]}
-                </span>
-              ))}
-            </p>
-          </Section>
-        )}
-      </Columns>
+      {sections.map(({ sec, start }, idx) => (
+        <section key={`${sec.materialId}-${idx}`}>
+          <Instruction className={idx > 0 ? "mt-5" : undefined}>{rangeLabel(start.mcq, sec.mcq.length)}다음 글을 읽고 물음에 답하시오.</Instruction>
+          <PassageBox text={sec.passage.text} source={sec.passage.author ? `${sec.passage.author}, 「${sec.passage.title}」` : `「${sec.passage.title}」`} />
+          <McqList data={{ questions: sec.mcq }} showAnswers={showAnswers} start={start.mcq} />
+          {sec.short_answer.length > 0 && <ShortAnswerList data={{ questions: sec.short_answer }} showAnswers={showAnswers} start={start.sa} />}
+          {sec.ox.length > 0 && (
+            <>
+              <Instruction>[OX] 다음 진술이 윗글의 내용과 맞으면 O, 틀리면 X 표시하시오.</Instruction>
+              <OxList data={{ items: sec.ox }} showAnswers={showAnswers} />
+            </>
+          )}
+        </section>
+      ))}
+      {showAnswers && allMcq.length > 0 && (
+        <section className="paper-q">
+          <SectionTitle>빠른 정답표</SectionTitle>
+          <p className="font-sans tabular-nums">
+            {allMcq.map((q, i) => (
+              <span key={i} className="mr-3 inline-block">
+                {i + 1}. {CIRCLED[q.answer - 1]}
+              </span>
+            ))}
+          </p>
+        </section>
+      )}
     </>
   );
 }
@@ -429,37 +404,42 @@ function ExamSetPaper({ exam, showAnswers, columns }: { exam: ExamSet; showAnswe
 /* 문서                                                                 */
 /* ------------------------------------------------------------------ */
 
-export function PaperDocument({
-  material,
-  showAnswers,
-  columns = 2,
-  className,
-}: {
-  material: PaperMaterial;
-  showAnswers: boolean;
-  columns?: 1 | 2;
-  className?: string;
-}) {
+function headOf(material: PaperMaterial, showAnswers: boolean) {
+  switch (material.kind) {
+    case "passage": {
+      const st = material.settings;
+      const sub = [
+        material.author,
+        st.schoolLevel ? `${SCHOOL_LEVELS[st.schoolLevel]}${st.grade ? ` ${st.grade}` : ""}` : "",
+        st.difficulty ? `난이도 ${DIFFICULTIES[st.difficulty]}` : "",
+      ];
+      return { title: material.title, sub: sub.filter(Boolean).join(" · "), badge: showAnswers ? "교사용" : "학생용" };
+    }
+    case "exam_set": {
+      const e = material.content.exam;
+      return {
+        title: e.title,
+        sub: [e.school, e.grade, e.timeLimit ? `${e.timeLimit}분` : "", showAnswers ? "" : "성명 :"].filter(Boolean).join(" · "),
+        badge: showAnswers ? "교사용" : "학생용",
+      };
+    }
+    case "ocr":
+      return { title: material.title, sub: `스마트 OCR 변환 · 원본 파일: ${material.content.ocr.fileName}` };
+  }
+}
+
+export function PaperDocument({ material, showAnswers, columns = 2 }: { material: PaperMaterial; showAnswers: boolean; columns?: 1 | 2 }) {
   return (
-    <div className={cn("paper text-black", className)}>
-      {material.kind === "passage" && <PassagePaper m={material} showAnswers={showAnswers} columns={columns} />}
-      {material.kind === "exam_set" && <ExamSetPaper exam={material.content.exam} showAnswers={showAnswers} columns={columns} />}
-      {material.kind === "ocr" && (
-        <>
-          <PaperHeader title={material.title} sub={`스마트 OCR 변환 · 원본 파일: ${material.content.ocr.fileName}`} />
-          <Columns columns={columns}>
-            <Section columns={columns}>
-              <div className="passage whitespace-pre-line [text-align:justify]">
-                <RichText text={material.content.ocr.text} />
-              </div>
-            </Section>
-          </Columns>
-        </>
-      )}
-      <p className="mt-5 border-t border-black pt-1.5 font-sans text-[0.72em] leading-relaxed text-slate-500">
-        ※ 클래스픽(ClassPick) AI가 만든 초안입니다. 수업·평가 활용 전 담당 선생님의 최종 검수를 거쳐 주세요. 지문의 저작권은 원저작자에게 있으며, 교육 목적
-        범위에서 출처를 밝혀 사용해 주세요.
-      </p>
+    <div className="paper text-black">
+      <PaperPages head={headOf(material, showAnswers)} columns={columns}>
+        {material.kind === "passage" && <PassageFlow m={material} showAnswers={showAnswers} />}
+        {material.kind === "exam_set" && <ExamSetFlow exam={material.content.exam} showAnswers={showAnswers} />}
+        {material.kind === "ocr" && <PassageBox text={material.content.ocr.text} />}
+        <p className="paper-q mt-5 border-t border-black pt-1.5 font-sans text-[0.72em] leading-relaxed text-slate-500">
+          ※ 클래스픽(ClassPick) AI가 만든 초안입니다. 수업·평가 활용 전 담당 선생님의 최종 검수를 거쳐 주세요. 지문의 저작권은 원저작자에게 있으며, 교육
+          목적 범위에서 출처를 밝혀 사용해 주세요.
+        </p>
+      </PaperPages>
     </div>
   );
 }

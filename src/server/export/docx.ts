@@ -68,7 +68,13 @@ function box(block: Extract<Block, { type: "box" }>) {
   const children = [
     ...(block.title ? [new Paragraph({ children: [new TextRun({ text: block.title, bold: true, size: 21, font: SANS })] })] : []),
     ...block.lines.map(
-      (line) => new Paragraph({ spacing: { line: 380 }, children: (typeof line === "string" ? [{ text: line }] : line).map((r) => textRun(r)) }),
+      (line) =>
+        new Paragraph({
+          spacing: { line: 380 },
+          alignment: block.indentFirst ? AlignmentType.JUSTIFIED : undefined,
+          indent: block.indentFirst ? { firstLine: 210 } : undefined,
+          children: (typeof line === "string" ? [{ text: line }] : line).map((r) => textRun(r)),
+        }),
     ),
   ];
   return new Table({
@@ -129,7 +135,7 @@ export async function buildDocx(doc: DocModel): Promise<Uint8Array> {
       case "paragraph":
         push(
           new Paragraph({
-            alignment: block.align === "center" ? AlignmentType.CENTER : AlignmentType.JUSTIFIED,
+            alignment: block.align === "center" ? AlignmentType.CENTER : block.align === "right" ? AlignmentType.RIGHT : AlignmentType.JUSTIFIED,
             indent: block.indent ? { left: 400 } : undefined,
             spacing: { after: 80, line: 320 },
             children: block.runs.map((r) => textRun(r)),

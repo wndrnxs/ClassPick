@@ -218,12 +218,12 @@ export function MaterialViewer({
               </button>
             ))}
           </div>
-          {view === "paper" && <p className="hidden text-xs text-muted-foreground md:block">인쇄·HWPX·DOCX도 같은 2단 형식으로 내려받아요.</p>}
+          {view === "paper" && <p className="hidden text-xs text-muted-foreground md:block">쪽마다 왼쪽 단부터 채워요. 인쇄·HWPX·DOCX도 같은 형식이에요.</p>}
         </div>
       )}
 
       {paper && view === "paper" ? (
-        <div className="rounded-2xl border bg-white px-4 py-5 shadow-[var(--shadow-soft)] sm:px-8 sm:py-7">
+        <div className="rounded-2xl border bg-slate-100 p-3 sm:p-6 max-sm:bg-white">
           <PaperDocument material={material} showAnswers={showAnswers} />
         </div>
       ) : (

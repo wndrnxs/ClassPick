@@ -59,10 +59,15 @@ export const PARA = {
   cell: 4,
   passage: 5,
   title: 6,
+  /** 산문 지문: 문단 첫 줄 들여쓰기 */
+  passageIndent: 7,
+  right: 8,
 } as const;
 
 type ParaDef = {
-  align: "JUSTIFY" | "LEFT" | "CENTER";
+  align: "JUSTIFY" | "LEFT" | "CENTER" | "RIGHT";
+  /** 첫 줄 들여쓰기 (HWPUNIT) */
+  firstLine?: number;
   lineSpacing: number;
   left?: number;
   prev?: number;
@@ -78,6 +83,8 @@ const PARA_DEFS: Record<number, ParaDef> = {
   [PARA.cell]: { align: "LEFT", lineSpacing: 140 },
   [PARA.passage]: { align: "JUSTIFY", lineSpacing: 180 },
   [PARA.title]: { align: "CENTER", lineSpacing: 150, next: 300 },
+  [PARA.passageIndent]: { align: "JUSTIFY", lineSpacing: 180, firstLine: 1000 },
+  [PARA.right]: { align: "RIGHT", lineSpacing: 160, next: 200 },
 };
 
 /** 테두리/배경 ID */
@@ -146,7 +153,7 @@ function charProperties() {
 
 function margin(d: ParaDef, scale: number) {
   const v = (n = 0) => n * scale;
-  return `<hh:margin><hc:intent value="0" unit="HWPUNIT"/><hc:left value="${v(d.left)}" unit="HWPUNIT"/><hc:right value="0" unit="HWPUNIT"/><hc:prev value="${v(
+  return `<hh:margin><hc:intent value="${v(d.firstLine)}" unit="HWPUNIT"/><hc:left value="${v(d.left)}" unit="HWPUNIT"/><hc:right value="0" unit="HWPUNIT"/><hc:prev value="${v(
     d.prev,
   )}" unit="HWPUNIT"/><hc:next value="${v(d.next)}" unit="HWPUNIT"/></hh:margin><hh:lineSpacing type="PERCENT" value="${d.lineSpacing}" unit="HWPUNIT"/>`;
 }

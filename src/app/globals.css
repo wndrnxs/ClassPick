@@ -141,19 +141,16 @@
   }
 }
 
-/* 시험지 형식(2단) 문서 — components/material/paper.tsx */
+/* 시험지 형식 문서 — components/material/paper.tsx, paper-pages.tsx */
 .paper {
   font-family: var(--font-serif);
   font-size: 14.5px;
   line-height: 1.72;
   word-break: keep-all;
 }
-@media screen and (min-width: 768px) {
-  .paper-cols-screen {
-    column-count: 2;
-    column-gap: 2.4em;
-    column-rule: 1px solid #000;
-  }
+/* A4 쪽: 인쇄물과 같은 10pt */
+.paper-page-text {
+  font-size: 10pt;
 }
 .paper-q {
   break-inside: avoid;
@@ -164,6 +161,21 @@
 .paper-box {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
+}
+/* 휴대폰 화면: 쪽 대신 1단으로 이어 보기 (쪽은 계산을 위해 화면 밖에 둠) */
+.paper-flow {
+  display: none;
+}
+@media screen and (max-width: 639px) {
+  .paper-pages {
+    position: absolute;
+    left: -10000px;
+    top: 0;
+    visibility: hidden;
+  }
+  .paper-flow {
+    display: block;
+  }
 }
 
 /* 인쇄(PDF 저장) 전용 스타일 */
@@ -185,12 +197,23 @@
   .print-avoid {
     break-inside: avoid;
   }
-  .paper {
-    font-size: 10pt;
+  /* 시험지 쪽: 화면과 같은 쪽 구성 그대로. 쪽 여백(12mm)은 @page 여백이 대신하므로 종이 안쪽 영역만 인쇄 */
+  .paper-pages {
+    zoom: 1 !important;
   }
-  .paper-cols-print {
-    column-count: 2;
-    column-gap: 7mm;
-    column-rule: 1px solid #000;
+  .paper-pages > div + div {
+    break-before: page;
+  }
+  .paper-sheet {
+    width: 186mm !important;
+    height: 272mm !important;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+  .paper-sheet > footer {
+    bottom: 0 !important;
+  }
+  .paper-flow {
+    display: none !important;
   }
 }

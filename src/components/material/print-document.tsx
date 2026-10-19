@@ -7,7 +7,7 @@ export function PrintDocument({ material, audience, columns = 2 }: { material: M
   // 지문 자료·모음 시험지·OCR 문서는 시험지 형식(기본 2단)으로 인쇄합니다.
   if (hasPaperLayout(material)) {
     return (
-      <article className="mx-auto max-w-[210mm] bg-white px-[12mm] py-[12mm] shadow-xl print:max-w-none print:p-0 print:shadow-none">
+      <article className="mx-auto max-w-[210mm] print:max-w-none">
         <PaperDocument material={material} showAnswers={audience === "teacher"} columns={columns} />
       </article>
     );

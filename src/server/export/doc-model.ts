@@ -10,11 +10,11 @@ export type Block =
   | { type: "title"; text: string }
   | { type: "meta"; text: string }
   | { type: "heading"; text: string; level: 1 | 2 }
-  | { type: "paragraph"; runs: Run[]; align?: "left" | "center" | "justify"; indent?: boolean }
+  | { type: "paragraph"; runs: Run[]; align?: "left" | "center" | "right" | "justify"; indent?: boolean }
   /** 표: widths는 상대 비율 */
   | { type: "table"; header?: string[]; rows: string[][]; widths?: number[] }
   /** 테두리 상자 (지문, <보기>, 안내문) */
-  | { type: "box"; title?: string; /** 한 줄 = 한 문단. 서식이 있는 줄은 구간 목록 */ lines: (string | Run[])[]; tone?: "plain" | "shaded" }
+  | { type: "box"; title?: string; /** 한 줄 = 한 문단. 서식이 있는 줄은 구간 목록 */ lines: (string | Run[])[]; tone?: "plain" | "shaded"; /** 문단 첫 줄 들여쓰기 (산문 지문) */ indentFirst?: boolean }
   | { type: "pageBreak" }
   /** 이 지점부터 단 수 변경 (제목은 1단, 본문은 2단 등) */
   | { type: "columns"; count: 1 | 2 }

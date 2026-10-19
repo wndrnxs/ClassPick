@@ -132,3 +132,36 @@ describe("formatted passages in exports", () => {
     expect(xml).not.toContain("&lt;box&gt;");
   });
 });
+
+describe("passage box layout (수능 형식)", () => {
+  it("indents prose paragraphs and drops blank lines between them", async () => {
+    const { passageKind, passageLayout } = await import("@/lib/passage-layout");
+    const prose = "새침하게 흐린 품이 눈이 올 듯하더니 눈은 아니 오고 얼다가 만 비가 추적추적 내리는 날이었다.\n\n  이날이야말로 <b>운수 좋은 날</b>이었다. 문안에 들어간답시는 앞집 마나님을 전찻길까지 모셔다 드린 것을 비롯으로";
+    expect(passageKind(prose)).toBe("prose");
+    expect(passageKind("나 보기가 역겨워\n가실 때에는", "현대시 · 자유시")).toBe("verse");
+    expect(passageKind("짧은 줄\n짧은 줄", "현대소설")).toBe("prose");
+    const lines = passageLayout(prose, "prose");
+    expect(lines).toHaveLength(2);
+    expect(lines.every((l) => "runs" in l && l.indent)).toBe(true);
+    expect(lines[1]).toMatchObject({ runs: [{ text: "이날이야말로 " }, { text: "운수 좋은 날", b: true }, expect.anything()] });
+  });
+
+  it("keeps verse lines and one gap between stanzas", async () => {
+    const { passageLayout } = await import("@/lib/passage-layout");
+    const lines = passageLayout("\n나 보기가 역겨워\n가실 때에는\n\n\n영변에 약산\n", "verse");
+    expect(lines.map((l) => ("gap" in l ? "|" : l.runs.map((r) => r.text).join("")))).toEqual(["나 보기가 역겨워", "가실 때에는", "|", "영변에 약산"]);
+  });
+
+  it("puts the passage and questions before the teaching notes in exports", () => {
+    const doc = materialToDocModel(sampleToDTO(SAMPLES[0]), "student");
+    const texts = doc.blocks.map((b) => (b.type === "paragraph" ? b.runs.map((r) => r.text).join("") : b.type === "heading" ? `#${b.text}` : b.type));
+    const iInstruction = texts.findIndex((t) => /^\[1～\d\] 다음 글을 읽고 물음에 답하시오\.$/.test(t));
+    const iBox = texts.indexOf("box");
+    const iFirstQ = texts.findIndex((t) => /^1\. /.test(t));
+    const iNotes = texts.findIndex((t) => t.startsWith("#Ⅰ."));
+    expect(iInstruction).toBeGreaterThan(-1);
+    expect(iInstruction).toBeLessThan(iBox);
+    expect(iBox).toBeLessThan(iFirstQ);
+    expect(iFirstQ).toBeLessThan(iNotes);
+  });
+});

@@ -5,7 +5,7 @@
 import { MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER } from "@/lib/catalog";
 import type { MaterialDTO } from "@/lib/material-dto";
 import { computeReportStats } from "@/lib/report-stats";
-import { richLines } from "@/lib/rich-text";
+import { passageKind, passageLayout } from "@/lib/passage-layout";
 import { DIFFICULTIES, SCHOOL_LEVELS, type ExamSet, type MaterialType, type PassageContent } from "@/lib/schemas";
 import { p, runs, type Block, type DocModel, type Run } from "./doc-model";
 
@@ -18,16 +18,23 @@ function passageLines(text: string): string[] {
   return text.replace(/\r\n?/g, "\n").split("\n");
 }
 
-/** 서식 있는 지문 → 줄마다 구간 목록 (굵게·밑줄·네모 박스) */
-function richPassageLines(markup: string): Run[][] {
-  return richLines(markup).map((line) => line.map((r) => ({ text: r.text, bold: r.b, underline: r.u, boxed: r.box })));
+/**
+ * 지문 상자 (수능 문제지 형식): 산문은 문단 첫 줄 들여쓰기·문단 사이 빈 줄 없음, 운문은 행·연 그대로.
+ * 서식(굵게·밑줄·네모 박스)은 구간으로 유지합니다.
+ */
+function passageBox(markup: string, genre = ""): Block {
+  const kind = passageKind(markup, genre);
+  const lines = passageLayout(markup, kind).map((line): Run[] =>
+    "gap" in line ? [] : line.runs.map((r) => ({ text: r.text, bold: r.b, underline: r.u, boxed: r.box })),
+  );
+  return { type: "box", lines, indentFirst: kind === "prose" };
 }
 
-function attribution(m: { title: string; author: string; sourceNote: string }): string {
-  if (m.sourceNote) return `출처: ${m.sourceNote}`;
-  if (m.author) return `출처: ${m.author}, 「${m.title}」`;
-  return `출처: 「${m.title}」`;
-}
+const rangeLabel = (start: number, count: number) => (count > 1 ? `[${start}～${start + count - 1}] ` : count === 1 ? `[${start}] ` : "");
+
+/** 지문 아래 오른쪽 출처: - 김소월, 「진달래꽃」 - */
+const sourceLine = (m: { title: string; author: string; sourceNote: string }): Block =>
+  p(`- ${m.sourceNote || (m.author ? `${m.author}, 「${m.title}」` : `「${m.title}」`)} -`, { align: "right" });
 
 const FOOTER_NOTICE: Block[] = [
   { type: "spacer" },
@@ -251,21 +258,30 @@ function passageDoc(m: Extract<MaterialDTO, { kind: "passage" }>, audience: Audi
     { type: "title", text: m.title },
     { type: "meta", text: meta },
     { type: "columns", count: columns },
-    { type: "heading", level: 1, text: "지문" },
-    { type: "box", lines: richPassageLines(m.sourceText) },
-    p(attribution(m), { align: "left" }),
   ];
+  // 수능 문제지 순서: [1～3] 안내 → 지문 → 문항 → (수업 정리 자료)
   const types = MATERIAL_TYPE_ORDER.filter((t) => m.content[t] && (!only || only.includes(t)));
-  types.forEach((type, idx) => {
-    blocks.push({ type: "heading", level: 1, text: `${SECTION_NUMBERS[idx]}. ${MATERIAL_TYPE_META[type].label}` });
-    const c = m.content;
-    if (type === "structure" && c.structure) blocks.push(...structureBlocks(c.structure, columns));
-    if (type === "annotation" && c.annotation) blocks.push(...annotationBlocks(c.annotation, columns));
+  const c = m.content;
+  const mcqCount = types.includes("mcq") ? (c.mcq?.questions.length ?? 0) : 0;
+  const genre = [m.settings.genre !== "auto" ? m.settings.genre : "", c.structure?.genre].filter(Boolean).join(" ");
+  blocks.push(
+    runs({ text: `${rangeLabel(1, mcqCount)}다음 글을 읽고 물음에 답하시오.`, bold: true }),
+    passageBox(m.sourceText, genre),
+    sourceLine(m),
+  );
+  for (const type of types) {
     if (type === "mcq" && c.mcq) blocks.push(...mcqBlocks(c.mcq, audience));
     if (type === "short_answer" && c.short_answer) blocks.push(...shortAnswerBlocks(c.short_answer, audience));
     if (type === "ox" && c.ox) blocks.push(...oxBlocks(c.ox, audience, columns));
     if (type === "vocab" && c.vocab) blocks.push(...vocabBlocks(c.vocab, audience, columns));
-  });
+  }
+  types
+    .filter((t) => t === "structure" || t === "annotation")
+    .forEach((type, idx) => {
+      blocks.push({ type: "heading", level: 1, text: `${SECTION_NUMBERS[idx]}. ${MATERIAL_TYPE_META[type].label}` });
+      if (type === "structure" && c.structure) blocks.push(...structureBlocks(c.structure, columns));
+      if (type === "annotation" && c.annotation) blocks.push(...annotationBlocks(c.annotation, columns));
+    });
   blocks.push(...FOOTER_NOTICE);
   return { title: m.title, blocks };
 }
@@ -288,13 +304,11 @@ function examSetDoc(exam: ExamSet, audience: Audience, columns: Columns): DocMod
   let saNo = 1;
   const answerRows: string[][] = [];
   exam.sections.forEach((sec) => {
-    const count = sec.mcq.length;
-    const range = count > 1 ? `[${mcqNo}~${mcqNo + count - 1}]` : count === 1 ? `[${mcqNo}]` : "";
     blocks.push(
       { type: "spacer" },
-      runs({ text: `${range} `, bold: true }, { text: "다음 글을 읽고 물음에 답하시오.", bold: true }),
-      { type: "box", lines: richPassageLines(sec.passage.text) },
-      p(attribution({ title: sec.passage.title, author: sec.passage.author, sourceNote: "" })),
+      runs({ text: `${rangeLabel(mcqNo, sec.mcq.length)}다음 글을 읽고 물음에 답하시오.`, bold: true }),
+      passageBox(sec.passage.text),
+      sourceLine({ title: sec.passage.title, author: sec.passage.author, sourceNote: "" }),
     );
     if (sec.mcq.length) {
       blocks.push(...mcqBlocks({ questions: sec.mcq }, "student", mcqNo));
