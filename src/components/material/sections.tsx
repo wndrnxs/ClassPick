@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import type { Annotation, Mcq, Ox, PassageContent, ShortAnswer, Structure } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 
+import { RichText } from "./rich-text";
+
 export const CIRCLED = ["①", "②", "③", "④", "⑤"];
 
 function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -468,7 +470,9 @@ export function PassageView({
           {author && <span className="font-medium text-muted-foreground">· {author}</span>}
         </figcaption>
       )}
-      <div className="passage px-5 py-4 text-[15px] whitespace-pre-line text-slate-900 sm:px-6">{text}</div>
+      <div className="passage px-5 py-4 text-[15px] whitespace-pre-line text-slate-900 sm:px-6">
+        <RichText text={text} />
+      </div>
       {sourceNote && <p className="border-t px-5 py-2.5 text-xs text-muted-foreground">출처: {sourceNote}</p>}
     </figure>
   );

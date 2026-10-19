@@ -4,7 +4,7 @@
  */
 export type RunColor = "accent" | "muted" | "danger" | "emerald";
 
-export type Run = { text: string; bold?: boolean; color?: RunColor };
+export type Run = { text: string; bold?: boolean; underline?: boolean; /** 글자 테두리(네모 박스) */ boxed?: boolean; color?: RunColor };
 
 export type Block =
   | { type: "title"; text: string }
@@ -14,11 +14,14 @@ export type Block =
   /** 표: widths는 상대 비율 */
   | { type: "table"; header?: string[]; rows: string[][]; widths?: number[] }
   /** 테두리 상자 (지문, <보기>, 안내문) */
-  | { type: "box"; title?: string; lines: string[]; tone?: "plain" | "shaded" }
+  | { type: "box"; title?: string; /** 한 줄 = 한 문단. 서식이 있는 줄은 구간 목록 */ lines: (string | Run[])[]; tone?: "plain" | "shaded" }
   | { type: "pageBreak" }
   | { type: "spacer" };
 
 export type DocModel = { title: string; blocks: Block[] };
+
+/** 상자 한 줄의 글자만 */
+export const lineText = (line: string | Run[]) => (typeof line === "string" ? line : line.map((r) => r.text).join(""));
 
 export const p = (text: string, opts: Omit<Extract<Block, { type: "paragraph" }>, "type" | "runs"> = {}): Block => ({
   type: "paragraph",

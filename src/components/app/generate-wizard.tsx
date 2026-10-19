@@ -18,10 +18,12 @@ import {
   ScrollText,
   Sparkles,
   SpellCheck,
+  TriangleAlert,
   WandSparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { RichText } from "@/components/material/rich-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,14 +32,15 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { RadioChip, RadioGroup } from "@/components/ui/radio-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { api, ApiError } from "@/lib/api-client";
 import { costOf, FEATURE_COSTS, MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER } from "@/lib/catalog";
+import { hasHanyangPua, stripRich } from "@/lib/rich-text";
 import { DIFFICULTIES, SCHOOL_LEVELS, type MaterialType } from "@/lib/schemas";
 import { cn } from "@/lib/utils";
 import { FileDropzone } from "./file-dropzone";
 import { InsufficientPointsDialog } from "./insufficient-dialog";
 import { ProgressOverlay } from "./progress-overlay";
+import { RichPassageEditor } from "./rich-passage-editor";
 
 export type WizardSample = { slug: string; title: string; author: string; sourceNote: string; passage: string };
 export type WizardInitial = { passage: string; title: string; author: string; sourceNote: string };
@@ -183,7 +186,8 @@ export function GenerateWizard({
 
   const cost = useMemo(() => costOf(types), [types]);
   const ordered = MATERIAL_TYPE_ORDER.filter((t) => types.includes(t));
-  const passageOk = passage.trim().length >= 20;
+  const passageLength = stripRich(passage).length;
+  const passageOk = stripRich(passage).trim().length >= 20;
 
   function toggleType(t: MaterialType, on: boolean) {
     setTypes((prev) => (on ? [...new Set([...prev, t])] : prev.filter((x) => x !== t)));
@@ -308,16 +312,24 @@ export function GenerateWizard({
                 </NativeSelect>
               </div>
               <TabsContent value="paste" className="mt-3">
-                <Textarea
+                <RichPassageEditor
                   value={passage}
-                  onChange={(e) => setPassage(e.target.value)}
-                  placeholder={"수업할 지문을 붙여넣어 주세요.\n\n시는 연과 연 사이에 빈 줄을 넣으면 연 단위 해설이 더 정확해집니다."}
-                  className="passage min-h-[360px] resize-y text-[15px]"
+                  onChange={setPassage}
+                  placeholder={"수업할 지문을 붙여넣어 주세요.\n\n한글·워드·웹에서 복사하면 굵게·밑줄·네모 박스가 그대로 들어와요. 시는 연과 연 사이에 빈 줄을 넣으면 연 단위 해설이 더 정확해집니다."}
                   aria-label="지문 본문"
                 />
+                {hasHanyangPua(passage) && (
+                  <p className="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-soft/70 px-3 py-2 text-xs leading-relaxed text-amber-900">
+                    <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+                    <span>
+                      한컴 전용 옛한글 코드(사용자 정의 영역 글자)가 섞여 있어요. 이 글자는 다른 화면·AI에서 깨져 보일 수 있어요. 원본 문서에서 옛한글을
+                      유니코드(첫가끝) 방식으로 바꾼 뒤 다시 붙여 넣어 주세요.
+                    </span>
+                  </p>
+                )}
                 <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                   <span>{passageOk ? "좋아요! 다음 단계로 넘어가세요." : "20자 이상 입력해 주세요."}</span>
-                  <span className="tabular-nums">{passage.length.toLocaleString()} / 20,000자</span>
+                  <span className="tabular-nums">{passageLength.toLocaleString()} / 20,000자</span>
                 </div>
               </TabsContent>
               <TabsContent value="upload" className="mt-3 space-y-3">
@@ -500,7 +512,9 @@ export function GenerateWizard({
             <h2 className="mt-1 text-xl font-extrabold">
               {title || "제목 자동 생성"} {author && <span className="text-base font-semibold text-muted-foreground">{author}</span>}
             </h2>
-            <p className="passage mt-4 line-clamp-[12] rounded-xl bg-surface p-4 text-[15px] whitespace-pre-line text-slate-800">{passage}</p>
+            <p className="passage mt-4 line-clamp-[12] rounded-xl bg-surface p-4 text-[15px] whitespace-pre-line text-slate-800">
+              <RichText text={passage} />
+            </p>
           </div>
           <div className="space-y-4">
             <div className="rounded-2xl border bg-white p-5">

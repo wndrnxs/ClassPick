@@ -3,7 +3,7 @@
  * A4(210×297mm), 좌우 여백 30mm 기준 본문 폭 42520 HWPUNIT.
  */
 import type { Block, DocModel, Run, RunColor } from "../doc-model";
-import { BORDER, CHAR, PARA } from "./header";
+import { BORDER, CHAR, PARA, richChar } from "./header";
 import { esc, OWPML_NS, XML_DECL } from "./xml";
 
 const TEXT_WIDTH = 42520;
@@ -25,7 +25,10 @@ const SEC_PR =
     .join("") +
   "</hp:secPr>";
 
-type CellPara = { text: string; charPr: number };
+type CellRun = { text: string; charPr: number };
+/** 표 칸 안의 문단 하나 (구간 여러 개) */
+type CellPara = CellRun[];
+const cellText = (text: string, charPr: number): CellPara => [{ text, charPr }];
 
 const COLOR_CHAR: Record<RunColor, number> = {
   accent: CHAR.accent,
@@ -36,8 +39,10 @@ const COLOR_CHAR: Record<RunColor, number> = {
 
 function charOf(run: Run, base: number = CHAR.body): number {
   if (run.color) return COLOR_CHAR[run.color];
-  if (run.bold) return base === CHAR.small ? CHAR.smallBold : CHAR.bodyBold;
-  return base;
+  if (base === CHAR.small) return run.bold ? CHAR.smallBold : base;
+  const mask = (run.bold ? 1 : 0) | (run.underline ? 2 : 0) | (run.boxed ? 4 : 0);
+  if (mask === 0) return base;
+  return mask === 1 ? CHAR.bodyBold : richChar(mask);
 }
 
 class SectionWriter {
@@ -77,13 +82,15 @@ class SectionWriter {
     texts: CellPara[],
     opts: { col: number; row: number; width: number; header: boolean; border: number; paraPr: number },
   ) {
-    const paras = (texts.length ? texts : [{ text: "", charPr: CHAR.small }])
+    const paras = (texts.length ? texts : [cellText("", CHAR.small)])
       .map(
-        (t) =>
-          `<hp:p paraPrIDRef="${opts.paraPr}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0" id="${this.paraId++}">${this.run(
-            t.charPr,
-            t.text,
-          )}</hp:p>`,
+        (para) =>
+          `<hp:p paraPrIDRef="${opts.paraPr}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0" id="${this.paraId++}">${(para.length
+            ? para
+            : cellText("", CHAR.body)
+          )
+            .map((r) => this.run(r.charPr, r.text))
+            .join("")}</hp:p>`,
       )
       .join("");
     return (
@@ -147,11 +154,11 @@ function writeBlock(w: SectionWriter, block: Block) {
       const ratios = block.widths ?? Array.from({ length: cols }, () => 1);
       const rows = [
         ...(block.header
-          ? [{ cells: block.header.map((h) => [{ text: h, charPr: CHAR.smallBold }]), header: true, border: BORDER.tableHeader }]
+          ? [{ cells: block.header.map((h) => [cellText(h, CHAR.smallBold)]), header: true, border: BORDER.tableHeader }]
           : []),
         ...block.rows.map((r) => ({
           cells: Array.from({ length: cols }, (_, i) =>
-            (r[i] ?? "").split("\n").map((text) => ({ text, charPr: CHAR.small })),
+            (r[i] ?? "").split("\n").map((text) => cellText(text, CHAR.small)),
           ),
           header: false,
           border: BORDER.table,
@@ -162,8 +169,10 @@ function writeBlock(w: SectionWriter, block: Block) {
     }
     case "box": {
       const texts: CellPara[] = [
-        ...(block.title ? [{ text: block.title, charPr: CHAR.bodyBold }] : []),
-        ...block.lines.map((text) => ({ text, charPr: CHAR.body })),
+        ...(block.title ? [cellText(block.title, CHAR.bodyBold)] : []),
+        ...block.lines.map((line) =>
+          typeof line === "string" ? cellText(line, CHAR.body) : line.map((r) => ({ text: r.text, charPr: charOf(r) })),
+        ),
       ];
       w.table([{ cells: [texts], header: false, border: block.tone === "plain" ? BORDER.table : BORDER.box }], [1], PARA.passage);
       break;

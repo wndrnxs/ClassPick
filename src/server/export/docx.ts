@@ -15,14 +15,27 @@ import {
   WidthType,
 } from "docx";
 
+import { hasOldHangul } from "@/lib/rich-text";
+
 import type { Block, DocModel, Run, RunColor } from "./doc-model";
 
 const COLORS: Record<RunColor, string> = { accent: "2563EB", danger: "DC2626", emerald: "047857", muted: "64748B" };
 const SERIF = "바탕";
 const SANS = "맑은 고딕";
 
+// 옛한글(첫가끝 자모)은 조합을 지원하는 함초롬바탕으로 (한글과컴퓨터 무료 글꼴, 한컴오피스와 함께 설치됨)
+const OLD_HANGUL_FONT = "함초롬바탕";
+
 const textRun = (r: Run, size = 21) =>
-  new TextRun({ text: r.text, bold: r.bold || Boolean(r.color && r.color !== "muted"), color: r.color ? COLORS[r.color] : undefined, size, font: SERIF });
+  new TextRun({
+    text: r.text,
+    bold: r.bold || Boolean(r.color && r.color !== "muted"),
+    underline: r.underline ? {} : undefined,
+    border: r.boxed ? { style: BorderStyle.SINGLE, size: 4, color: "000000", space: 1 } : undefined,
+    color: r.color ? COLORS[r.color] : undefined,
+    size,
+    font: hasOldHangul(r.text) ? OLD_HANGUL_FONT : SERIF,
+  });
 
 const border = { style: BorderStyle.SINGLE, size: 4, color: "94A3B8" };
 const cellBorders = { top: border, bottom: border, left: border, right: border };
@@ -53,7 +66,9 @@ function table(block: Extract<Block, { type: "table" }>) {
 function box(block: Extract<Block, { type: "box" }>) {
   const children = [
     ...(block.title ? [new Paragraph({ children: [new TextRun({ text: block.title, bold: true, size: 21, font: SANS })] })] : []),
-    ...block.lines.map((line) => new Paragraph({ spacing: { line: 380 }, children: [new TextRun({ text: line, size: 21, font: SERIF })] })),
+    ...block.lines.map(
+      (line) => new Paragraph({ spacing: { line: 380 }, children: (typeof line === "string" ? [{ text: line }] : line).map((r) => textRun(r)) }),
+    ),
   ];
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },

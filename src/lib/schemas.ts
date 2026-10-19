@@ -10,6 +10,8 @@
  */
 import { z } from "zod";
 
+import { normalizeRich, stripRich } from "./rich-text";
+
 /* ------------------------------------------------------------------ */
 /* 1. 자료 유형                                                         */
 /* ------------------------------------------------------------------ */
@@ -228,11 +230,13 @@ export const CreateMaterialInput = z.object({
   title: z.string().trim().max(120).default(""),
   author: z.string().trim().max(60).default(""),
   sourceNote: z.string().trim().max(120).default(""),
+  // 서식 표기(<b>·<u>·<box>)를 뺀 글자 수로 검사합니다.
   passage: z
     .string()
-    .trim()
-    .min(20, "지문은 20자 이상 입력해 주세요.")
-    .max(20000, "지문은 20,000자 이하로 입력해 주세요."),
+    .max(80000, "지문은 20,000자 이하로 입력해 주세요.")
+    .transform((v) => normalizeRich(v).trim())
+    .refine((v) => stripRich(v).trim().length >= 20, "지문은 20자 이상 입력해 주세요.")
+    .refine((v) => stripRich(v).length <= 20000, "지문은 20,000자 이하로 입력해 주세요."),
   types: z.array(z.enum(MATERIAL_TYPES)).min(1, "자료 유형을 1개 이상 선택해 주세요."),
   settings: GenerationSettingsSchema.default({
     schoolLevel: "high",

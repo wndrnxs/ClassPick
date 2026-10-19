@@ -10,7 +10,7 @@
  */
 import JSZip from "jszip";
 
-import type { Block, DocModel } from "../doc-model";
+import { lineText, type Block, type DocModel } from "../doc-model";
 import { buildHeaderXml } from "./header";
 import { buildSectionXml } from "./section";
 import { esc, OWPML_NS, XML_DECL } from "./xml";
@@ -45,7 +45,7 @@ function previewText(blocks: Block[]) {
   for (const b of blocks) {
     if (b.type === "title" || b.type === "meta" || b.type === "heading") lines.push(b.text);
     else if (b.type === "paragraph") lines.push(b.runs.map((r) => r.text).join(""));
-    else if (b.type === "box") lines.push(...(b.title ? [b.title] : []), ...b.lines);
+    else if (b.type === "box") lines.push(...(b.title ? [b.title] : []), ...b.lines.map(lineText));
     if (lines.join("\n").length > 1000) break;
   }
   return lines.join("\r\n").slice(0, 1000);

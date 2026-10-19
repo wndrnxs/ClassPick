@@ -17,6 +17,7 @@ import {
   stripParticle,
 } from "@/lib/hangul";
 import type { Annotation, ExamReport, MaterialType, Mcq, Ox, ShortAnswer, Structure, Vocab } from "@/lib/schemas";
+import { stripRich } from "@/lib/rich-text";
 import { matchSample } from "@/lib/samples";
 import { HttpError } from "@/server/http";
 import type { AiEngine, PassageContext, SectionOutput } from "./types";
@@ -347,7 +348,8 @@ function demoExamReport(examText: string, title: string): ExamReport {
 export const demoEngine: AiEngine = {
   name: "demo",
 
-  async generateSection<T extends MaterialType>(type: T, ctx: PassageContext) {
+  async generateSection<T extends MaterialType>(type: T, input: PassageContext) {
+    const ctx = { ...input, passage: stripRich(input.passage) }; // 서식 표기는 데모 분석에 쓰지 않음
     const sample = matchSample(ctx.passage);
     const prebuilt = sample?.content[type];
     if (prebuilt) return structuredClone(prebuilt) as unknown as SectionOutput[T];

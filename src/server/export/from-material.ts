@@ -5,8 +5,9 @@
 import { MATERIAL_TYPE_META, MATERIAL_TYPE_ORDER } from "@/lib/catalog";
 import type { MaterialDTO } from "@/lib/material-dto";
 import { computeReportStats } from "@/lib/report-stats";
+import { richLines } from "@/lib/rich-text";
 import { DIFFICULTIES, SCHOOL_LEVELS, type ExamSet, type MaterialType, type PassageContent } from "@/lib/schemas";
-import { p, runs, type Block, type DocModel } from "./doc-model";
+import { p, runs, type Block, type DocModel, type Run } from "./doc-model";
 
 export type Audience = "teacher" | "student";
 export const CIRCLED = ["①", "②", "③", "④", "⑤"];
@@ -14,6 +15,11 @@ const SECTION_NUMBERS = ["Ⅰ", "Ⅱ", "Ⅲ", "Ⅳ", "Ⅴ", "Ⅵ"];
 
 function passageLines(text: string): string[] {
   return text.replace(/\r\n?/g, "\n").split("\n");
+}
+
+/** 서식 있는 지문 → 줄마다 구간 목록 (굵게·밑줄·네모 박스) */
+function richPassageLines(markup: string): Run[][] {
+  return richLines(markup).map((line) => line.map((r) => ({ text: r.text, bold: r.b, underline: r.u, boxed: r.box })));
 }
 
 function attribution(m: { title: string; author: string; sourceNote: string }): string {
@@ -182,7 +188,7 @@ function passageDoc(m: Extract<MaterialDTO, { kind: "passage" }>, audience: Audi
     { type: "title", text: m.title },
     { type: "meta", text: meta },
     { type: "heading", level: 1, text: "지문" },
-    { type: "box", lines: passageLines(m.sourceText) },
+    { type: "box", lines: richPassageLines(m.sourceText) },
     p(attribution(m), { align: "left" }),
   ];
   const types = MATERIAL_TYPE_ORDER.filter((t) => m.content[t] && (!only || only.includes(t)));
@@ -222,7 +228,7 @@ function examSetDoc(exam: ExamSet, audience: Audience): DocModel {
     blocks.push(
       { type: "spacer" },
       runs({ text: `${range} `, bold: true }, { text: "다음 글을 읽고 물음에 답하시오.", bold: true }),
-      { type: "box", lines: passageLines(sec.passage.text) },
+      { type: "box", lines: richPassageLines(sec.passage.text) },
       p(attribution({ title: sec.passage.title, author: sec.passage.author, sourceNote: "" })),
     );
     if (sec.mcq.length) {

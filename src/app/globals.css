@@ -67,11 +67,22 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
   --font-sans:
-    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo",
+    "ClassPick Old Hangul", "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo",
     "Malgun Gothic", "맑은 고딕", sans-serif;
-  --font-serif: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", "바탕", serif;
+  --font-serif: "ClassPick Old Hangul", "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", "바탕", serif;
   --shadow-soft: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -8px rgb(30 64 175 / 0.12);
   --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.04), 0 18px 40px -12px rgb(30 64 175 / 0.22);
+}
+
+/*
+ * 옛한글(훈민정음 표기) 전용 글꼴: 첫가끝 조합형 자모·방점·옛 호환 자모만 담은 Noto Serif KR 부분 글꼴 (SIL OFL 1.1, public/fonts/OFL-NotoSerifKR.txt)
+ * unicode-range 덕분에 옛한글이 있는 페이지에서만 내려받고, 현대 한글은 기존 글꼴 그대로입니다.
+ */
+@font-face {
+  font-family: "ClassPick Old Hangul";
+  src: url("/fonts/classpick-old-hangul.woff2") format("woff2");
+  unicode-range: U+1100-11FF, U+A960-A97F, U+D7B0-D7FF, U+302E-302F, U+3165-318E, U+25CC;
+  font-display: swap;
 }
 
 @layer base {
@@ -115,6 +126,18 @@
     font-family: var(--font-serif);
     line-height: 1.95;
     letter-spacing: -0.005em;
+  }
+  /* 지문 서식: 원문의 네모 박스 표시 (줄이 바뀌어도 양 끝에 테두리) */
+  .rich-box {
+    border: 1px solid currentColor;
+    padding: 0 0.15em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .rich-u {
+    text-decoration-line: underline;
+    text-underline-offset: 0.28em;
+    text-decoration-thickness: 1px;
   }
 }
 

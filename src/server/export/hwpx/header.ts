@@ -24,7 +24,10 @@ export const CHAR = {
   muted: 11,
 } as const;
 
-type CharDef = { height: number; color: string; font: 0 | 1; bold?: boolean };
+/** 지문 서식 조합(굵게 1 · 밑줄 2 · 네모 박스 4)별 본문 글자 모양 ID: 12~18 */
+export const richChar = (mask: number) => 11 + mask;
+
+type CharDef = { height: number; color: string; font: 0 | 1; bold?: boolean; underline?: boolean; boxed?: boolean };
 
 const CHAR_DEFS: Record<number, CharDef> = {
   [CHAR.body]: { height: 1000, color: "#000000", font: 1 },
@@ -39,6 +42,12 @@ const CHAR_DEFS: Record<number, CharDef> = {
   [CHAR.small]: { height: 900, color: "#000000", font: 1 },
   [CHAR.smallBold]: { height: 900, color: "#0F172A", font: 0, bold: true },
   [CHAR.muted]: { height: 1000, color: "#64748B", font: 1 },
+  ...Object.fromEntries(
+    [1, 2, 3, 4, 5, 6, 7].map((mask) => [
+      richChar(mask),
+      { height: 1000, color: "#000000", font: 1, bold: !!(mask & 1), underline: !!(mask & 2), boxed: !!(mask & 4) } satisfies CharDef,
+    ]),
+  ),
 };
 
 /** 문단 모양 ID */
@@ -78,6 +87,8 @@ export const BORDER = {
   table: 3,
   tableHeader: 4,
   box: 5,
+  /** 글자 테두리 (지문의 네모 박스) */
+  charBox: 6,
 } as const;
 
 const langAttrs = (value: string | number) => LANGS.map((l) => `${l.toLowerCase()}="${value}"`).join(" ");
@@ -115,6 +126,7 @@ function borderFills() {
     borderFill(BORDER.table, { border: true, color: "#94A3B8" }),
     borderFill(BORDER.tableHeader, { border: true, color: "#94A3B8", fill: "#EEF2FF" }),
     borderFill(BORDER.box, { border: true, color: "#475569", fill: "#F8FAFC" }),
+    borderFill(BORDER.charBox, { border: true, color: "#000000", width: "0.12 mm" }),
   ];
   return `<hh:borderFills itemCnt="${items.length}">${items.join("")}</hh:borderFills>`;
 }
@@ -123,11 +135,11 @@ function charProperties() {
   const ids = Object.keys(CHAR_DEFS).map(Number);
   const items = ids.map((id) => {
     const d = CHAR_DEFS[id];
-    return `<hh:charPr id="${id}" height="${d.height}" textColor="${d.color}" shadeColor="none" useFontSpace="0" useKerning="0" symMark="NONE" borderFillIDRef="${BORDER.charDefault}"><hh:fontRef ${langAttrs(
+    return `<hh:charPr id="${id}" height="${d.height}" textColor="${d.color}" shadeColor="none" useFontSpace="0" useKerning="0" symMark="NONE" borderFillIDRef="${d.boxed ? BORDER.charBox : BORDER.charDefault}"><hh:fontRef ${langAttrs(
       d.font,
     )}/><hh:ratio ${langAttrs(100)}/><hh:spacing ${langAttrs(0)}/><hh:relSz ${langAttrs(100)}/><hh:offset ${langAttrs(0)}/>${
       d.bold ? "<hh:bold/>" : ""
-    }<hh:underline type="NONE" shape="SOLID" color="#000000"/><hh:strikeout shape="NONE" color="#000000"/><hh:outline type="NONE"/><hh:shadow type="NONE" color="#C0C0C0" offsetX="10" offsetY="10"/></hh:charPr>`;
+    }<hh:underline type="${d.underline ? "BOTTOM" : "NONE"}" shape="SOLID" color="#000000"/><hh:strikeout shape="NONE" color="#000000"/><hh:outline type="NONE"/><hh:shadow type="NONE" color="#C0C0C0" offsetX="10" offsetY="10"/></hh:charPr>`;
   });
   return `<hh:charProperties itemCnt="${items.length}">${items.join("")}</hh:charProperties>`;
 }
