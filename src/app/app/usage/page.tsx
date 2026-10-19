@@ -48,7 +48,8 @@ async function Report({ searchParams }: { searchParams: PageProps<"/app/usage">[
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
         현재 설정: 엔진 <b className="text-slate-700">{engine === "claude" ? "Claude" : "데모 (API 키 없음 · 기록 안 됨)"}</b> · 모델{" "}
-        <b className="text-slate-700">{env.aiModel}</b> · effort <b className="text-slate-700">{env.aiEffort}</b>
+        <b className="text-slate-700">{env.aiModel}</b> · effort <b className="text-slate-700">{env.aiEffort}</b> · 실제 AI 사용{" "}
+        <b className="text-slate-700">{env.aiUsers === "admins" ? "운영자·마스터 계정만" : "가입 계정 전체"}</b> (체험 계정은 항상 데모)
       </p>
       <nav className="flex gap-1 rounded-xl bg-muted/60 p-1 sm:w-fit" aria-label="기간">
         {PERIODS.map((p) => (

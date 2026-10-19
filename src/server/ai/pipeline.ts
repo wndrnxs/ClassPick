@@ -9,16 +9,16 @@ import type {
   Mcq,
   PassageContent,
 } from "@/lib/schemas";
-import { aiEngine } from "@/server/env";
 import type { UploadedFile } from "@/server/ingest/extract";
 import { claudeEngine } from "./claude-engine";
 import { demoEngine } from "./demo-engine";
 import type { AiEngine, PassageContext, SectionOutput } from "./types";
 import type { UsageLog } from "./usage";
 
-export function getEngine(): AiEngine {
-  return aiEngine() === "claude" ? claudeEngine : demoEngine;
-}
+/** engine: 계정별로 정한 엔진 (server/ai/access.ts의 engineFor) */
+export type AiRunOptions = { engine: AiEngine["name"]; log?: UsageLog };
+
+const getEngine = (name: AiEngine["name"]): AiEngine => (name === "claude" ? claudeEngine : demoEngine);
 
 /* ------------------------------------------------------------------ */
 /* 후처리: AI 출력의 형식을 서비스 규칙에 맞게 보정합니다.                    */
@@ -69,8 +69,8 @@ function postProcess<T extends MaterialType>(type: T, out: SectionOutput[T], ctx
 }
 
 /** 선택한 자료 유형들을 병렬로 생성합니다. 한 유형이라도 실패하면 전체를 실패로 처리합니다(토큰 환불). */
-export async function generatePassageContent(input: CreateMaterialInput, log?: UsageLog) {
-  const engine = getEngine();
+export async function generatePassageContent(input: CreateMaterialInput, { engine: name, log }: AiRunOptions) {
+  const engine = getEngine(name);
   const ctx: PassageContext = {
     passage: input.passage,
     title: input.title,
@@ -92,15 +92,15 @@ export async function generatePassageContent(input: CreateMaterialInput, log?: U
   return { engine: engine.name, content, title, author };
 }
 
-export async function analyzeExamPaper(input: AnalyzeExamInput, log?: UsageLog): Promise<{ engine: AiEngine["name"]; report: ExamReport }> {
-  const engine = getEngine();
+export async function analyzeExamPaper(input: AnalyzeExamInput, { engine: name, log }: AiRunOptions): Promise<{ engine: AiEngine["name"]; report: ExamReport }> {
+  const engine = getEngine(name);
   const report = await engine.analyzeExam(input, log);
   report.questions.sort((a, b) => a.number - b.number);
   return { engine: engine.name, report };
 }
 
 /** 텍스트 레이어가 없는 스캔 PDF·이미지를 AI OCR로 변환합니다. */
-export async function ocrWithAi(file: UploadedFile, log?: UsageLog): Promise<{ engine: AiEngine["name"]; text: string }> {
-  const engine = getEngine();
+export async function ocrWithAi(file: UploadedFile, { engine: name, log }: AiRunOptions): Promise<{ engine: AiEngine["name"]; text: string }> {
+  const engine = getEngine(name);
   return { engine: engine.name, text: await engine.ocr(file, log) };
 }

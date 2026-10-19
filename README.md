@@ -71,6 +71,8 @@ npm run typecheck            # 라우트 타입 생성 + tsc
 | `CLASSPICK_AI_MODE` | `auto` | `auto` / `claude` / `demo` |
 | `CLASSPICK_AI_MODEL` | `claude-opus-5-5` | 사용할 Claude 모델 |
 | `CLASSPICK_AI_EFFORT` | `high` | `low`~`max` (출제 품질과 비용의 균형) |
+| `CLASSPICK_AI_USERS` | `members` | 실제 AI를 쓸 수 있는 계정: `members`(가입 계정 전체) / `admins`(운영자·마스터만). 체험 계정은 항상 데모 엔진 |
+| `CLASSPICK_MASTER_EMAIL` · `CLASSPICK_MASTER_PASSWORD` | – | 마스터 계정 (가입 없이 존재, 비밀번호 12자 이상일 때만 켜짐). 운영자 권한 · 실제 AI · 토큰 자동 충전 |
 | `CLASSPICK_ADMIN_EMAILS` | – | AI 사용량·원가 화면(`/app/usage`)에 들어갈 선생님 계정 이메일, 쉼표로 구분 |
 | `CLASSPICK_USD_KRW` | `1400` | 원가를 원화로 보여 줄 때의 환율(원/달러) |
 | `DATABASE_PATH` | `./data/classpick.db` | SQLite(libSQL) 파일 경로 |
@@ -159,6 +161,17 @@ tests/                    vitest (HWPX/DOCX, 한글 유틸, 데모 엔진, 서�
 - 시스템 프롬프트와 지문 블록에 `cache_control`을 두어 같은 지문의 반복 생성 비용을 줄입니다.
 - **결정적 후처리**: 초성은 모델이 아닌 서버가 계산(`toChoseong`), 5지선다는 선지 5개·정답 범위·번호 기호를 정규화, 문항 수는 설정값으로 보정.
 - **OCR**: 텍스트 레이어가 있는 문서는 AI 없이 무료 추출, 스캔 PDF·이미지만 Claude 비전으로 전사(토큰 1개).
+
+### 외부 테스트 운영 — 계정별 AI 사용 범위
+
+| 계정 | 만드는 방법 | 실제 AI(Claude) | 토큰 | 데이터 |
+|---|---|---|---|---|
+| 체험 계정 (선생님·학생) | 로그인 화면의 체험 버튼 | **항상 데모 엔진** (API 키가 있어도 호출 안 함) | 선생님 30개 | 샘플·체험반 포함, 계정마다 새로 생성 |
+| 가입 계정 | 회원가입 | `CLASSPICK_AI_USERS=members`면 사용, `admins`면 데모 | 선생님 30개 | 유지 |
+| 마스터 계정 | 환경 변수 `CLASSPICK_MASTER_EMAIL`·`_PASSWORD` (첫 로그인 때 생성) | 사용 | 로그인마다 100,000개로 충전 | 유지, 운영자 화면 접근 |
+
+- 계정별 엔진은 `src/server/ai/access.ts` 한 곳에서 결정하고, 대시보드와 자료 만들기 화면에 그 이유(체험 계정 · API 키 없음 · 비공개 테스트)를 안내합니다.
+- 마스터 계정 이메일로는 회원가입할 수 없고, 비밀번호는 환경 변수가 기준이라 바꾸면 바로 반영됩니다. 로그인 시도 횟수 제한은 아직 없으므로 길고 추측하기 어려운 비밀번호를 쓰세요.
 
 ### AI 사용량 · 원가 기록 (운영자)
 

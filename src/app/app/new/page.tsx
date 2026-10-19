@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SAMPLES } from "@/lib/samples";
 import { requireUser } from "@/server/auth/dal";
-import { aiEngine } from "@/server/env";
+import { DEMO_NOTICE, demoReasonFor } from "@/server/ai/access";
 import { HttpError } from "@/server/http";
 import { getMaterial } from "@/server/services/materials";
 
@@ -25,7 +25,16 @@ async function WizardLoader({ searchParams }: { searchParams: PageProps<"/app/ne
     }
   }
   const samples = SAMPLES.map(({ slug, title, author, sourceNote, passage }) => ({ slug, title, author, sourceNote, passage }));
-  return <GenerateWizard balance={user.points} engine={aiEngine()} samples={samples} initial={initial} />;
+  const demoReason = demoReasonFor(user);
+  return (
+    <GenerateWizard
+      balance={user.points}
+      engine={demoReason ? "demo" : "claude"}
+      demoNotice={demoReason ? DEMO_NOTICE[demoReason] : undefined}
+      samples={samples}
+      initial={initial}
+    />
+  );
 }
 
 export default function NewMaterialPage(props: PageProps<"/app/new">) {

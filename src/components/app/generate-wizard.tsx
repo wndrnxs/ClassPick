@@ -152,11 +152,14 @@ function CountStepper({ value, onChange, min, max, unit }: { value: number; onCh
 export function GenerateWizard({
   balance,
   engine,
+  demoNotice,
   samples,
   initial,
 }: {
   balance: number;
   engine: "claude" | "demo";
+  /** 데모 엔진인 이유 안내 (체험 계정 · 키 없음 · 비공개 테스트) */
+  demoNotice?: string;
   samples: WizardSample[];
   initial?: WizardInitial;
 }) {
@@ -545,7 +548,7 @@ export function GenerateWizard({
             {engine === "demo" && (
               <p className="flex gap-2 rounded-xl border border-dashed border-amber-300 bg-amber-soft/60 p-3 text-xs leading-relaxed text-amber-900">
                 <FlaskConical className="size-4 shrink-0" />
-                데모 엔진 모드입니다. 예시 지문은 완성된 결과가, 그 밖의 지문은 형태 분석 기반의 틀이 생성됩니다.
+                {demoNotice ?? "데모 엔진 모드입니다. 예시 지문은 완성된 결과가, 그 밖의 지문은 형태 분석 기반의 틀이 생성됩니다."}
               </p>
             )}
             <Button size="xl" variant="gradient" className="w-full" onClick={generate} disabled={generating}>

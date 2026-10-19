@@ -41,11 +41,29 @@ vi.mock("@anthropic-ai/sdk", async (importOriginal) => {
 });
 
 describe("Claude engine usage capture", () => {
+  it("never calls the API for guest (trial) accounts", async () => {
+    const users = await import("@/server/services/users");
+    const materials = await import("@/server/services/materials");
+    const aiUsage = await import("@/server/services/ai-usage");
+    const guest = await users.createGuestUser("teacher");
+    const m = await materials.createPassageMaterial(guest, {
+      title: "",
+      author: "",
+      sourceNote: "",
+      passage: "나 보기가 역겨워\n가실 때에는",
+      types: ["mcq"],
+      settings: { schoolLevel: "high", grade: "", difficulty: "standard", genre: "auto", counts: { mcq: 3, short_answer: 2, ox: 6, vocab: 6 } },
+    });
+    expect(m.engine).toBe("demo");
+    expect((await aiUsage.getUsageReport(null)).total.calls).toBe(0);
+  });
+
   it("records every billed call, including the one that failed, and refunds the job", async () => {
     const users = await import("@/server/services/users");
     const materials = await import("@/server/services/materials");
     const aiUsage = await import("@/server/services/ai-usage");
-    const userId = await users.createGuestUser("teacher");
+    // 체험(게스트) 계정은 실제 AI를 쓰지 않으므로 가입한 선생님 계정으로 테스트합니다.
+    const userId = await users.registerUser({ name: "선생님", email: "member@test.kr", password: "password123", role: "teacher", organization: "", agreeTerms: true });
     const input = (types: ("mcq" | "ox")[]) => ({
       title: "",
       author: "",

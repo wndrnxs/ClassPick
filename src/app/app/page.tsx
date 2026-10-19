@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { costOf, MATERIAL_TYPE_ORDER } from "@/lib/catalog";
 import { requireUser } from "@/server/auth/dal";
-import { aiEngine } from "@/server/env";
+import { DEMO_NOTICE, demoReasonFor } from "@/server/ai/access";
 import { listMaterials } from "@/server/services/materials";
 
 export const metadata: Metadata = { title: "대시보드" };
@@ -23,7 +23,7 @@ const QUICK = [
 
 async function Greeting() {
   const user = await requireUser();
-  const engine = aiEngine();
+  const demoReason = demoReasonFor(user);
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-blue-700 to-primary-deep p-6 text-white sm:p-8">
       <div className="bg-grid absolute inset-0 opacity-20" />
@@ -35,9 +35,9 @@ async function Greeting() {
             보유 토큰 <strong className="text-white">{user.points}개</strong> — 지문 풀세트(6종)는 토큰 {costOf(MATERIAL_TYPE_ORDER)}개면
             충분해요.
           </p>
-          {engine === "demo" && (
-            <p className="mt-3 inline-flex rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-amber-200 ring-1 ring-white/20">
-              데모 엔진 모드 · ANTHROPIC_API_KEY를 설정하면 Claude AI로 생성됩니다
+          {demoReason && (
+            <p className="mt-3 inline-flex rounded-2xl bg-white/15 px-3 py-1 text-xs font-semibold text-amber-200 ring-1 ring-white/20">
+              {DEMO_NOTICE[demoReason]}
             </p>
           )}
         </div>
