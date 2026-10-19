@@ -105,7 +105,10 @@ export async function getMaterial(userId: string, id: string): Promise<MaterialD
 
 export async function deleteMaterial(userId: string, id: string) {
   await findOwned(userId, id);
-  await (await getDb()).delete(schema.materials).where(eq(schema.materials.id, id)).run();
+  const db = await getDb();
+  // 배포한 시험은 스냅샷으로 남기고 원본 연결만 끊습니다 (외래 키 설정과 같은 동작을 코드로 보장).
+  await db.update(schema.assignments).set({ materialId: null }).where(eq(schema.assignments.materialId, id)).run();
+  await db.delete(schema.materials).where(eq(schema.materials.id, id)).run();
 }
 
 async function insertMaterial(values: typeof schema.materials.$inferInsert): Promise<MaterialDTO> {

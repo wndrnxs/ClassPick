@@ -93,6 +93,37 @@ describe("question & answer between students and teachers", () => {
     expect((await inquiries.listStudentInquiries(student))[0]).toMatchObject({ questionNumber: 2, status: "answered" });
   });
 
+  it("removes an exam's submissions, starts and questions without relying on foreign-key cascades", async () => {
+    const { getDb, schema } = await import("@/server/db/client");
+    const { sql, eq } = await import("drizzle-orm");
+    const db = await getDb();
+    await db.run(sql`PRAGMA foreign_keys = OFF`); // 원격 DB처럼 연쇄 삭제가 동작하지 않는 상황
+    try {
+      const teacher = await signup("del-t@test.kr", "teacher");
+      const student = await signup("del-s@test.kr", "student");
+      const ids = await materials.seedSampleMaterials(teacher);
+      const cls = await classroom.createClass(teacher, "삭제반");
+      await classroom.joinClass(student, cls.joinCode);
+      const { id } = await classroom.createAssignment(teacher, { materialId: ids.azalea, classId: cls.id, title: "삭제", revealAnswers: true });
+      await classroom.startAssignment(student, id);
+      await classroom.submitAnswers(student, id, { answers: {}, durationSec: null });
+      await inquiries.askQuestion(student, { assignmentId: id, questionId: "s0-m0", body: "질문" });
+
+      // 자료를 지워도 시험은 남고 원본 연결만 끊김
+      await materials.deleteMaterial(teacher, ids.azalea);
+      expect((await db.select().from(schema.assignments).where(eq(schema.assignments.id, id)).get())?.materialId).toBeNull();
+
+      await classroom.deleteAssignment(teacher, id);
+      const count = async (t: typeof schema.submissions | typeof schema.examStarts | typeof schema.inquiries) =>
+        (await db.select().from(t).where(eq(t.assignmentId, id)).all()).length;
+      expect([await count(schema.submissions), await count(schema.examStarts), await count(schema.inquiries)]).toEqual([0, 0, 0]);
+      expect(await db.select().from(schema.inquiryMessages).all()).not.toContainEqual(expect.objectContaining({ body: "질문" }));
+      expect(await inquiries.countStudentUnread(student)).toBe(0);
+    } finally {
+      await db.run(sql`PRAGMA foreign_keys = ON`);
+    }
+  });
+
   it("seeds demo questions for guest teachers and students", async () => {
     const teacherId = await users.createGuestUser("teacher");
     expect(await inquiries.countTeacherOpenInquiries(teacherId)).toBe(2);

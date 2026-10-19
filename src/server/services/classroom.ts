@@ -304,7 +304,33 @@ export async function setAssignmentStatus(teacherId: string, assignmentId: strin
 
 export async function deleteAssignment(teacherId: string, assignmentId: string) {
   await findOwnedAssignment(teacherId, assignmentId);
-  await (await getDb()).delete(schema.assignments).where(eq(schema.assignments.id, assignmentId)).run();
+  // 외래 키 연쇄 삭제에 기대지 않고 하위 데이터를 직접 지웁니다 (원격 DB에서도 같은 결과).
+  const db = await getDb();
+  await db.transaction(
+    async (tx) => {
+      const threads = await tx
+        .select({ id: schema.inquiries.id })
+        .from(schema.inquiries)
+        .where(eq(schema.inquiries.assignmentId, assignmentId))
+        .all();
+      if (threads.length) {
+        await tx
+          .delete(schema.inquiryMessages)
+          .where(
+            inArray(
+              schema.inquiryMessages.inquiryId,
+              threads.map((t) => t.id),
+            ),
+          )
+          .run();
+      }
+      await tx.delete(schema.inquiries).where(eq(schema.inquiries.assignmentId, assignmentId)).run();
+      await tx.delete(schema.examStarts).where(eq(schema.examStarts.assignmentId, assignmentId)).run();
+      await tx.delete(schema.submissions).where(eq(schema.submissions.assignmentId, assignmentId)).run();
+      await tx.delete(schema.assignments).where(eq(schema.assignments.id, assignmentId)).run();
+    },
+    { behavior: "immediate" },
+  );
 }
 
 /* ------------------------------------------------------------------ */

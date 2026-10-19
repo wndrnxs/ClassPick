@@ -76,6 +76,7 @@ npm run typecheck            # 라우트 타입 생성 + tsc
 | `CLASSPICK_ADMIN_EMAILS` | – | AI 사용량·원가 화면(`/app/usage`)에 들어갈 선생님 계정 이메일, 쉼표로 구분 |
 | `CLASSPICK_USD_KRW` | `1400` | 원가를 원화로 보여 줄 때의 환율(원/달러) |
 | `DATABASE_PATH` | `./data/classpick.db` | SQLite(libSQL) 파일 경로 |
+| `DATABASE_URL` · `DATABASE_AUTH_TOKEN` | – | 호스팅 libSQL(Turso 등) 주소와 토큰. 설정하면 로컬 파일 대신 사용하고, 첫 접속 때 테이블을 자동으로 만듭니다(재배포해도 데이터 유지) |
 | `PAYMENT_PROVIDER` | `mock` | `mock`(테스트 결제) / `toss` |
 | `TOSS_SECRET_KEY` | – | 토스페이먼츠 결제 승인용 시크릿 키 |
 

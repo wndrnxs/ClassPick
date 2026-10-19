@@ -5,6 +5,9 @@ import "server-only";
  */
 export const env = {
   databasePath: process.env.DATABASE_PATH ?? "./data/classpick.db",
+  /** 호스팅 libSQL(Turso 등) 주소. 설정하면 로컬 파일 대신 이 DB를 씁니다 (재배포해도 데이터 유지). */
+  databaseUrl: (process.env.DATABASE_URL ?? "").trim(),
+  databaseAuthToken: process.env.DATABASE_AUTH_TOKEN ?? "",
   /** auto: ANTHROPIC_API_KEY가 있으면 Claude, 없으면 데모 엔진 */
   aiMode: (process.env.CLASSPICK_AI_MODE ?? "auto") as "auto" | "claude" | "demo",
   aiModel: process.env.CLASSPICK_AI_MODEL ?? "claude-opus-5-5",
