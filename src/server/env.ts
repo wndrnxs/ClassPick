@@ -1,13 +1,16 @@
 import "server-only";
 
+/** 대시보드에 값을 붙여 넣을 때 섞이기 쉬운 앞뒤 공백·따옴표를 걷어 냅니다. */
+const cleanSecret = (v: string | undefined) => (v ?? "").trim().replace(/^(["'])(.*)\1$/, "$2");
+
 /**
  * 서버 환경 변수 (모두 선택 사항 — 미설정 시 로컬 데모로 동작)
  */
 export const env = {
   databasePath: process.env.DATABASE_PATH ?? "./data/classpick.db",
   /** 호스팅 libSQL(Turso 등) 주소. 설정하면 로컬 파일 대신 이 DB를 씁니다 (재배포해도 데이터 유지). */
-  databaseUrl: (process.env.DATABASE_URL ?? "").trim(),
-  databaseAuthToken: process.env.DATABASE_AUTH_TOKEN ?? "",
+  databaseUrl: cleanSecret(process.env.DATABASE_URL),
+  databaseAuthToken: cleanSecret(process.env.DATABASE_AUTH_TOKEN),
   /** auto: ANTHROPIC_API_KEY가 있으면 Claude, 없으면 데모 엔진 */
   aiMode: (process.env.CLASSPICK_AI_MODE ?? "auto") as "auto" | "claude" | "demo",
   aiModel: process.env.CLASSPICK_AI_MODEL ?? "claude-opus-5-5",
@@ -28,8 +31,8 @@ export const env = {
    */
   aiUsers: (process.env.CLASSPICK_AI_USERS === "admins" ? "admins" : "members") as "members" | "admins",
   /** 마스터 계정: 가입 절차 없이 환경 변수로만 존재하는 운영·테스트용 선생님 계정 */
-  masterEmail: (process.env.CLASSPICK_MASTER_EMAIL ?? "").trim().toLowerCase(),
-  masterPassword: process.env.CLASSPICK_MASTER_PASSWORD ?? "",
+  masterEmail: cleanSecret(process.env.CLASSPICK_MASTER_EMAIL).toLowerCase(),
+  masterPassword: cleanSecret(process.env.CLASSPICK_MASTER_PASSWORD),
   /** 원가를 원화로 보여 줄 때 쓰는 환율 (원/달러) */
   usdKrw: Number(process.env.CLASSPICK_USD_KRW ?? 1400) || 1400,
 };

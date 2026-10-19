@@ -69,3 +69,21 @@ describe("master account", () => {
     }
   });
 });
+
+describe("master account settings from the dashboard", () => {
+  it("ignores stray quotes and spaces pasted around the values", async () => {
+    const saved = { e: process.env.CLASSPICK_MASTER_EMAIL, p: process.env.CLASSPICK_MASTER_PASSWORD };
+    process.env.CLASSPICK_MASTER_EMAIL = ' "Boss@ClassPick.kr" ';
+    process.env.CLASSPICK_MASTER_PASSWORD = "'another-long-pass' \n";
+    try {
+      const { vi } = await import("vitest");
+      vi.resetModules();
+      const fresh = await import("@/server/env");
+      expect(fresh.env.masterEmail).toBe("boss@classpick.kr");
+      expect(fresh.env.masterPassword).toBe("another-long-pass");
+    } finally {
+      process.env.CLASSPICK_MASTER_EMAIL = saved.e;
+      process.env.CLASSPICK_MASTER_PASSWORD = saved.p;
+    }
+  });
+});

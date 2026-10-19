@@ -59,7 +59,13 @@ const sameSecret = (a: string, b: string) => {
  * 운영자 권한(사용량 화면)과 실제 AI 사용이 허용되며, 체험 계정이 아니므로 데이터가 계속 남습니다.
  */
 async function signInMaster(password: string) {
-  if (!sameSecret(password, env.masterPassword)) throw new HttpError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
+  if (!sameSecret(password, env.masterPassword)) {
+    // 비밀번호 자체는 남기지 않고, 설정 확인에 필요한 정보만 서버 로그에 남깁니다.
+    console.warn(
+      `[master] 비밀번호 불일치 — 입력 ${password.length}자 / 설정 ${env.masterPassword.length}자. Render의 CLASSPICK_MASTER_PASSWORD 값과 대소문자·특수문자를 확인하세요.`,
+    );
+    throw new HttpError(401, "이메일 또는 비밀번호가 올바르지 않습니다.");
+  }
   const db = await getDb();
   let user = await db.select().from(schema.users).where(eq(schema.users.email, env.masterEmail)).get();
   if (!user) {
@@ -84,7 +90,12 @@ async function signInMaster(password: string) {
 }
 
 export async function authenticate(email: string, password: string) {
-  if (masterEnabled() && email.toLowerCase() === env.masterEmail) return signInMaster(password);
+  if (env.masterEmail && email.toLowerCase() === env.masterEmail) {
+    if (masterEnabled()) return signInMaster(password);
+    console.warn(
+      `[master] 마스터 계정이 꺼져 있습니다 — CLASSPICK_MASTER_PASSWORD가 ${env.masterPassword ? `${env.masterPassword.length}자로 12자 미만` : "비어 있음"}입니다.`,
+    );
+  }
   const user = await (await getDb()).select().from(schema.users).where(eq(schema.users.email, email)).get();
   // 사용자 존재 여부와 관계없이 같은 시간이 걸리도록 해시 비교를 수행합니다.
   const ok = await verifyPassword(password, user?.passwordHash ?? "scrypt$00$00");
