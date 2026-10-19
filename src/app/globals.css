@@ -141,11 +141,36 @@
   }
 }
 
+/* 시험지 형식(2단) 문서 — components/material/paper.tsx */
+.paper {
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  line-height: 1.72;
+  word-break: keep-all;
+}
+@media screen and (min-width: 768px) {
+  .paper-cols-screen {
+    column-count: 2;
+    column-gap: 2.4em;
+    column-rule: 1px solid #000;
+  }
+}
+.paper-q {
+  break-inside: avoid;
+}
+.paper-keep {
+  break-after: avoid;
+}
+.paper-box {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
 /* 인쇄(PDF 저장) 전용 스타일 */
 @media print {
   @page {
     size: A4;
-    margin: 16mm 14mm;
+    margin: 12mm 12mm;
   }
   html,
   body {
@@ -159,5 +184,13 @@
   }
   .print-avoid {
     break-inside: avoid;
+  }
+  .paper {
+    font-size: 10pt;
+  }
+  .paper-cols-print {
+    column-count: 2;
+    column-gap: 7mm;
+    column-rule: 1px solid #000;
   }
 }

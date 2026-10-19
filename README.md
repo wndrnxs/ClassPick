@@ -18,6 +18,11 @@
 | ⑤ | **스캔 문서 스마트 OCR** — 스캔 PDF·이미지 → 편집 가능한 HWPX (텍스트 문서는 무료 추출) | `/app/ocr` | HWPX · DOCS |
 | ⑥ | **여러 지문 모음 시험지 제본** — 지문 순서·출제 유형 선택, 연속 번호·정답표 자동 정리 | `/app/exam-builder` | 교사용 / 학생용 |
 
+### 자료 수정 · 시험지 형식(2단)
+
+- **자료 수정** (`/app/materials/[id]/edit`): 만든 자료의 제목·작가·출처·지문(서식 포함)과 생성된 내용(5지선다 발문·선지·정답·해설, 서술형 조건·채점 기준, OX, 어휘, 도식화, 행간주, 분석 보고서, 모음 시험지)을 직접 고칩니다. 토큰을 쓰지 않고, 문항 추가·삭제·순서 바꾸기도 됩니다. 서버(`PATCH /api/materials/:id`)와 화면이 같은 검증 규칙(`src/lib/material-edit.ts`)을 써서 "5지선다 2번 · 선지 3: …"처럼 고칠 곳을 알려 줍니다. 어휘 초성은 저장할 때 다시 계산하고, 이미 배포한 시험은 배포 시점 스냅샷을 유지합니다.
+- **시험지 형식(2단)**: 수능 문제지처럼 한 쪽을 두 단으로 나누고 단 사이에 구분선을 넣습니다. 지문 자료·모음 시험지·OCR 문서의 화면(「시험지 보기」), PDF 인쇄, HWPX(다단 설정·좁은 여백), DOCX(이어지는 구역 2단)에 모두 적용되며, 내려받기 메뉴와 인쇄 화면에서 1단을 고를 수도 있습니다. 2단에서는 넓은 표(행간주·어휘·OX)를 목록 형식으로 바꿔 공간을 아낍니다. 화면에서는 끝없이 긴 단이 되지 않도록 단원마다 2단으로 나눕니다. 시험지 분석 보고서는 표가 많아 1단을 유지합니다.
+
 ### 지문 서식 · 옛한글
 
 - **서식 유지 붙여넣기**: 새 자료 만들기의 지문 편집기에 한글·워드·구글 문서·웹 페이지에서 복사해 붙여 넣으면 **굵게 · 밑줄 · 네모 박스**만 남기고 글꼴·색·크기 같은 나머지 서식은 버립니다. 한 칸짜리 짧은 표(낱말 상자)와 글자 테두리는 네모 박스로 인식합니다. 편집기 단추(굵게·밑줄·네모 박스·서식 지우기)와 Ctrl+B/U, 실행 취소(Ctrl+Z)를 지원합니다.
@@ -207,8 +212,8 @@ tests/                    vitest (HWPX/DOCX, 지문 서식, 한글 유틸, 데�
 | POST | `/api/auth/signup` · `/login` · `/logout` · `/guest` | 회원가입(선생님은 토큰 30 지급) · 로그인 · 로그아웃 · 체험 계정(`?role=student`면 학생) |
 | GET | `/api/auth/me` | 현재 사용자 |
 | GET · POST | `/api/materials` | 자료 목록(`?kind=&q=`) · 지문 자료 생성 |
-| GET · DELETE | `/api/materials/:id` | 자료 조회 · 삭제 |
-| GET | `/api/materials/:id/export?format=hwpx\|docx&audience=teacher\|student` | 다운로드 |
+| GET · PATCH · DELETE | `/api/materials/:id` | 자료 조회 · 수정 · 삭제 |
+| GET | `/api/materials/:id/export?format=hwpx\|docx&audience=teacher\|student&columns=2\|1` | 다운로드 (기본 2단) |
 | POST | `/api/extract` | 파일 → 텍스트 (무료, 스캔본은 `needsOcr`) |
 | POST | `/api/ocr` | 스마트 OCR 문서 생성 |
 | POST | `/api/exams/analyze` · `/api/exams/compose` | 분석 보고서 · 모음 시험지 |

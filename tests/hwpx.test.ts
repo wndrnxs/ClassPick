@@ -70,3 +70,41 @@ describe("DOCX export", () => {
     }
   });
 });
+
+describe("two-column (exam paper) layout", () => {
+  const material = sampleToDTO(SAMPLES[0]);
+
+  it("puts the title in one column and the body in two columns with a rule in HWPX", async () => {
+    const zip = await JSZip.loadAsync(await buildHwpx(materialToDocModel(material, "student")));
+    const section = await zip.file("Contents/section0.xml")!.async("string");
+    expect(section).toContain('colCount="1"');
+    expect(section).toMatch(/<hp:colPr [^>]*colCount="2"[^>]*sameGap="2268"><hp:colLine type="SOLID"/);
+    // 수능 문제지처럼 좁은 여백, 표는 단 폭에 맞춤
+    expect(section).toContain('left="4252" right="4252"');
+    const widths = [...section.matchAll(/<hp:sz width="(\d+)"/g)].map((m) => Number(m[1]));
+    expect(widths.length).toBeGreaterThan(0);
+    expect(Math.max(...widths)).toBeLessThanOrEqual(24378);
+    // 1단으로 받으면 예전 형식
+    const one = await JSZip.loadAsync(await buildHwpx(materialToDocModel(material, "student", undefined, 1)));
+    const oneSection = await one.file("Contents/section0.xml")!.async("string");
+    expect(oneSection).not.toContain('colCount="2"');
+    expect(oneSection).toContain('left="8504" right="8504"');
+  });
+
+  it("starts a continuous two-column section in DOCX", async () => {
+    const zip = await JSZip.loadAsync(await buildDocx(materialToDocModel(material, "teacher")));
+    const xml = await zip.file("word/document.xml")!.async("string");
+    expect(xml).toMatch(/<w:cols [^>]*w:num="2"[^>]*\/?>/);
+    expect(xml).toMatch(/w:sep="(1|true)"/);
+    expect(xml).toMatch(/<w:type w:val="continuous"\/>/);
+  });
+
+  it("uses compact lists instead of wide tables in two columns", () => {
+    const two = materialToDocModel(material, "teacher");
+    const one = materialToDocModel(material, "teacher", undefined, 1);
+    const tables = (d: typeof two) => d.blocks.filter((b) => b.type === "table").length;
+    expect(tables(two)).toBeLessThan(tables(one));
+    // 분석 보고서·제본 정답표처럼 1단으로 돌아가는 구간도 표현 가능
+    expect(two.blocks.filter((b) => b.type === "columns")).toEqual([{ type: "columns", count: 2 }]);
+  });
+});

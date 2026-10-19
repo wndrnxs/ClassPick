@@ -28,7 +28,7 @@ async function SampleViewer({ params }: { params: PageProps<"/samples/[slug]">["
     <MaterialViewer
       material={sampleToMaterial(sample)}
       isSample
-      targets={{ exportBase: `/api/samples/${slug}/export`, printBase: `/samples/${slug}/print`, hasAudience: true }}
+      targets={{ exportBase: `/api/samples/${slug}/export`, printBase: `/samples/${slug}/print`, hasAudience: true, hasColumns: true }}
     />
   );
 }

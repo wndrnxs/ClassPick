@@ -6,6 +6,8 @@ import { and, desc, eq, like } from "drizzle-orm";
 
 import { costOf, FEATURE_COSTS, MATERIAL_TYPE_META } from "@/lib/catalog";
 import type { MaterialDTO, MaterialSummaryDTO } from "@/lib/material-dto";
+import { toChoseong } from "@/lib/hangul";
+import { issueLocation, UpdateMaterialInput } from "@/lib/material-edit";
 import { SAMPLES } from "@/lib/samples";
 import type {
   AnalyzeExamInput,
@@ -109,6 +111,65 @@ export async function deleteMaterial(userId: string, id: string) {
   // 배포한 시험은 스냅샷으로 남기고 원본 연결만 끊습니다 (외래 키 설정과 같은 동작을 코드로 보장).
   await db.update(schema.assignments).set({ materialId: null }).where(eq(schema.assignments.materialId, id)).run();
   await db.delete(schema.materials).where(eq(schema.materials.id, id)).run();
+}
+
+/**
+ * 자료 수정: 제목·작가·출처·지문과 생성된 내용(오타·잘못된 정보)을 고칩니다.
+ * 자료 구성(유형)은 바꾸지 않고, 이미 배포한 시험은 배포 시점의 스냅샷을 유지합니다.
+ */
+export async function updateMaterial(userId: string, id: string, body: unknown): Promise<MaterialDTO> {
+  const row = await findOwned(userId, id);
+  const parsed = UpdateMaterialInput.safeParse(body);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0];
+    const where = issue ? issueLocation(issue.path) : "";
+    throw new HttpError(400, `${where ? `${where}: ` : ""}${issue?.message ?? "입력값을 확인해 주세요."}`);
+  }
+  const input = parsed.data;
+  if (input.kind !== row.kind) throw new HttpError(400, "자료 종류가 맞지 않습니다. 화면을 새로 고친 뒤 다시 시도해 주세요.");
+
+  const values: Partial<typeof schema.materials.$inferInsert> = {
+    title: input.title,
+    author: input.author,
+    sourceNote: input.sourceNote,
+    updatedAt: new Date(),
+  };
+  switch (input.kind) {
+    case "passage": {
+      const content: PassageContent = {};
+      for (const type of row.types as MaterialType[]) {
+        const edited = input.content[type];
+        if (!edited) throw new HttpError(400, `${MATERIAL_TYPE_META[type].label} 내용이 빠져 있습니다.`);
+        if (type === "vocab") {
+          content.vocab = {
+            items: input.content.vocab!.items.map((item) => {
+              const answer = item.answer.replace(/\s+/g, "");
+              return { ...item, answer, initials: toChoseong(answer) };
+            }),
+          };
+        } else {
+          (content as Record<string, unknown>)[type] = edited;
+        }
+      }
+      values.sourceText = input.sourceText;
+      values.content = content;
+      break;
+    }
+    case "exam_report":
+      values.content = { report: { ...input.content.report, exam_title: input.title } };
+      break;
+    case "exam_set":
+      values.content = { exam: { ...input.content.exam, title: input.title } };
+      break;
+    case "ocr": {
+      const ocr = (row.content as { ocr: OcrResult }).ocr;
+      values.content = { ocr: { ...ocr, text: input.content.ocr.text } };
+      values.sourceText = input.content.ocr.text;
+      break;
+    }
+  }
+  const updated = await (await getDb()).update(schema.materials).set(values).where(eq(schema.materials.id, id)).returning().get();
+  return toDTO(updated);
 }
 
 async function insertMaterial(values: typeof schema.materials.$inferInsert): Promise<MaterialDTO> {

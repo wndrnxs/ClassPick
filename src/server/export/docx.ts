@@ -7,6 +7,7 @@ import {
   Packer,
   PageBreak,
   Paragraph,
+  SectionType,
   ShadingType,
   Table,
   TableCell,
@@ -87,8 +88,17 @@ function box(block: Extract<Block, { type: "box" }>) {
   });
 }
 
+// 2단 시험지는 수능 문제지처럼 여백을 좁게 (twip: 1mm ≈ 56.7)
+const MARGIN_WIDE = { top: 1134, bottom: 1134, left: 1247, right: 1247 };
+const MARGIN_NARROW = { top: 680, bottom: 680, left: 850, right: 850 };
+const COLUMN_GAP = 454; // 8mm
+
 export async function buildDocx(doc: DocModel): Promise<Uint8Array> {
-  const children: (Paragraph | Table)[] = [];
+  const twoColumn = doc.blocks.some((b) => b.type === "columns" && b.count === 2);
+  const margin = twoColumn ? MARGIN_NARROW : MARGIN_WIDE;
+  // 단 수가 바뀌는 지점마다 '구역(이어서)'을 새로 시작합니다.
+  const sections: { count: 1 | 2; children: (Paragraph | Table)[] }[] = [{ count: 1, children: [] }];
+  let children = sections[0].children;
   let breakNext = false;
   const push = (el: Paragraph | Table) => {
     if (breakNext) {
@@ -140,6 +150,13 @@ export async function buildDocx(doc: DocModel): Promise<Uint8Array> {
       case "spacer":
         push(new Paragraph({ children: [] }));
         break;
+      case "columns":
+        if (children.length === 0) sections[sections.length - 1].count = block.count;
+        else {
+          sections.push({ count: block.count, children: [] });
+          children = sections[sections.length - 1].children;
+        }
+        break;
     }
   }
 
@@ -148,7 +165,16 @@ export async function buildDocx(doc: DocModel): Promise<Uint8Array> {
     title: doc.title,
     description: "클래스픽(ClassPick)에서 생성한 수업 자료",
     styles: { default: { document: { run: { font: SERIF, size: 21 } } } },
-    sections: [{ properties: { page: { margin: { top: 1134, bottom: 1134, left: 1247, right: 1247 } } }, children }],
+    sections: sections
+      .filter((sec) => sec.children.length > 0)
+      .map((sec, i) => ({
+        properties: {
+          ...(i > 0 && { type: SectionType.CONTINUOUS }),
+          page: { margin },
+          column: sec.count === 2 ? { count: 2, space: COLUMN_GAP, separate: true, equalWidth: true } : { count: 1 },
+        },
+        children: sec.children,
+      })),
   });
   return new Uint8Array(await Packer.toBuffer(document));
 }

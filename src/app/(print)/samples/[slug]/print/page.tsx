@@ -17,12 +17,14 @@ async function SamplePrint({ params, searchParams }: PageProps<"/samples/[slug]/
   const { slug } = await params;
   const sample = getSample(slug);
   if (!sample) notFound();
-  const audience = (await searchParams).audience === "student" ? "student" : "teacher";
+  const sp = await searchParams;
+  const audience = sp.audience === "student" ? "student" : "teacher";
+  const columns = sp.columns === "1" ? 1 : 2;
   return (
     <>
-      <PrintToolbar backHref={`/samples/${slug}`} basePath={`/samples/${slug}/print`} audience={audience} hasAudience />
+      <PrintToolbar backHref={`/samples/${slug}`} basePath={`/samples/${slug}/print`} audience={audience} hasAudience columns={columns} />
       <div className="mt-8 print:mt-0">
-        <PrintDocument material={sampleToMaterial(sample)} audience={audience} />
+        <PrintDocument material={sampleToMaterial(sample)} audience={audience} columns={columns} />
       </div>
     </>
   );

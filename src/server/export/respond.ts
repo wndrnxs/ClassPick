@@ -5,10 +5,10 @@ import type { MaterialDTO } from "@/lib/material-dto";
 import { safeFileName } from "@/lib/utils";
 import { HttpError } from "@/server/http";
 import { buildDocx } from "./docx";
-import { materialToDocModel, type Audience } from "./from-material";
+import { materialToDocModel, type Audience, type Columns } from "./from-material";
 import { buildHwpx } from "./hwpx";
 
-export type ExportQuery = { format: "hwpx" | "docx"; audience: Audience; types?: MaterialType[] };
+export type ExportQuery = { format: "hwpx" | "docx"; audience: Audience; types?: MaterialType[]; columns: Columns };
 
 const MIME = {
   hwpx: "application/hwp+zip",
@@ -23,11 +23,12 @@ export function parseExportQuery(params: URLSearchParams): ExportQuery {
     .get("types")
     ?.split(",")
     .filter((t): t is MaterialType => (MATERIAL_TYPES as readonly string[]).includes(t));
-  return { format, audience, types: types?.length ? types : undefined };
+  const columns = params.get("columns") === "1" ? 1 : 2;
+  return { format, audience, types: types?.length ? types : undefined, columns };
 }
 
 export async function exportResponse(material: MaterialDTO, query: ExportQuery): Promise<Response> {
-  const doc = materialToDocModel(material, query.audience, query.types);
+  const doc = materialToDocModel(material, query.audience, query.types, query.columns);
   const bytes = query.format === "hwpx" ? await buildHwpx(doc) : await buildDocx(doc);
   const suffix = material.kind === "passage" || material.kind === "exam_set" ? (query.audience === "teacher" ? "_교사용" : "_학생용") : "";
   const fileName = `${safeFileName(material.title)}${suffix}.${query.format}`;

@@ -31,6 +31,7 @@ async function Viewer({ params }: { params: PageProps<"/app/materials/[id]">["pa
         exportBase: `/api/materials/${id}/export`,
         printBase: `/print/materials/${id}`,
         hasAudience: material.kind === "passage" || material.kind === "exam_set",
+        hasColumns: material.kind !== "exam_report",
       }}
       gradableCount={gradableCount}
       recommendedMinutes={gradableCount > 0 ? recommendedTimeLimitMin(buildSnapshot(material)) : null}

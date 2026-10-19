@@ -13,6 +13,7 @@ export function RichPassageEditor({
   onChange,
   placeholder,
   className,
+  editorClassName,
   "aria-label": ariaLabel,
 }: {
   /** 서식 표기(<b>·<u>·<box>)가 들어 있는 지문 */
@@ -20,6 +21,8 @@ export function RichPassageEditor({
   onChange: (markup: string) => void;
   placeholder?: string;
   className?: string;
+  /** 입력 영역 크기 등 (기본: 최소 높이 360px) */
+  editorClassName?: string;
   "aria-label"?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -190,7 +193,10 @@ export function RichPassageEditor({
           contentEditable
           suppressContentEditableWarning
           spellCheck={false}
-          className="passage max-h-[70vh] min-h-[360px] resize-y overflow-auto px-3 py-2.5 text-[15px] whitespace-pre-wrap text-slate-900 outline-none"
+          className={cn(
+            "passage max-h-[70vh] min-h-[360px] resize-y overflow-auto px-3 py-2.5 text-[15px] whitespace-pre-wrap text-slate-900 outline-none",
+            editorClassName,
+          )}
           onInput={(e) => {
             emit(read().markup, e.timeStamp, false);
           }}

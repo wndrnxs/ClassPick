@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { BadgeCheck, Bot, Eye, EyeOff, FlaskConical, Pencil, ShieldAlert, Trash2 } from "lucide-react";
+import { BadgeCheck, Bot, Columns2, Eye, EyeOff, FlaskConical, LayoutGrid, Pencil, PenLine, ShieldAlert, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,7 @@ import { cn, formatDate } from "@/lib/utils";
 import { DistributeDialog } from "@/components/classroom/distribute-dialog";
 import { ExamReportView, ExamSetView } from "./exam-views";
 import { ExportMenu, type ExportTargets } from "./export-menu";
+import { hasPaperLayout, PaperDocument } from "./paper";
 import { AnnotationView, McqView, OxView, PassageView, ShortAnswerView, StructureView, VocabView } from "./sections";
 
 export function ReviewNotice({ className }: { className?: string }) {
@@ -123,6 +125,9 @@ export function MaterialViewer({
   recommendedMinutes?: number | null;
 }) {
   const [showAnswers, setShowAnswers] = useState(true);
+  // 지문 자료·시험지·OCR은 시험지 형식(2단)으로 촘촘하게, 필요하면 카드 형식으로
+  const paper = hasPaperLayout(material);
+  const [view, setView] = useState<"paper" | "cards">("paper");
   const hasAnswers = material.kind === "passage" || material.kind === "exam_set";
 
   const meta: string[] = [];
@@ -165,6 +170,13 @@ export function MaterialViewer({
               recommendedMinutes={recommendedMinutes}
             />
           )}
+          {!isSample && (
+            <Button variant="outline" asChild>
+              <Link href={`/app/materials/${material.id}/edit`}>
+                <PenLine /> 수정
+              </Link>
+            </Button>
+          )}
           <ExportMenu {...targets} />
           {!isSample && <DeleteButton id={material.id} />}
         </div>
@@ -183,7 +195,40 @@ export function MaterialViewer({
         </div>
       )}
 
-      <MaterialBody material={material} showAnswers={showAnswers} initialTab={initialTab} />
+      {paper && (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex rounded-xl bg-muted/70 p-1 text-sm font-bold" role="group" aria-label="보기 형식">
+            {(
+              [
+                ["paper", "시험지 보기 (2단)", Columns2],
+                ["cards", "카드 보기", LayoutGrid],
+              ] as const
+            ).map(([key, label, Icon]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={view === key}
+                onClick={() => setView(key)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition",
+                  view === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-800",
+                )}
+              >
+                <Icon className="size-4" /> {label}
+              </button>
+            ))}
+          </div>
+          {view === "paper" && <p className="hidden text-xs text-muted-foreground md:block">인쇄·HWPX·DOCX도 같은 2단 형식으로 내려받아요.</p>}
+        </div>
+      )}
+
+      {paper && view === "paper" ? (
+        <div className="rounded-2xl border bg-white px-4 py-5 shadow-[var(--shadow-soft)] sm:px-8 sm:py-7">
+          <PaperDocument material={material} showAnswers={showAnswers} />
+        </div>
+      ) : (
+        <MaterialBody material={material} showAnswers={showAnswers} initialTab={initialTab} />
+      )}
 
       <ReviewNotice />
     </div>

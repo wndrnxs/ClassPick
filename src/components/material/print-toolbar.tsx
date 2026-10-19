@@ -11,12 +11,16 @@ export function PrintToolbar({
   basePath,
   audience,
   hasAudience,
+  columns,
 }: {
   backHref: string;
   basePath: string;
   audience: "teacher" | "student";
   hasAudience: boolean;
+  /** 시험지 형식 문서의 단 수 (분석 보고서처럼 해당 없으면 undefined) */
+  columns?: 1 | 2;
 }) {
+  const href = (a: "teacher" | "student", c = columns) => `${basePath}?audience=${a}${c ? `&columns=${c}` : ""}`;
   return (
     <div className="no-print sticky top-0 z-10 border-b bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-[210mm] flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -34,11 +38,26 @@ export function PrintToolbar({
               ).map(([value, label]) => (
                 <Link
                   key={value}
-                  href={`${basePath}?audience=${value}`}
+                  href={href(value)}
                   replace
                   className={cn("rounded-md px-3 py-1", audience === value ? "bg-white text-primary shadow-sm" : "text-slate-500")}
                 >
                   {label}
+                </Link>
+              ))}
+            </div>
+          )}
+          {columns && (
+            <div className="flex rounded-lg bg-muted p-1 text-sm font-semibold" aria-label="단 구성">
+              {([2, 1] as const).map((c) => (
+                <Link
+                  key={c}
+                  href={href(audience, c)}
+                  replace
+                  aria-current={columns === c ? "true" : undefined}
+                  className={cn("rounded-md px-3 py-1", columns === c ? "bg-white text-primary shadow-sm" : "text-slate-500")}
+                >
+                  {c}단
                 </Link>
               ))}
             </div>

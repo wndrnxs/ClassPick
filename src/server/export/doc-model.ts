@@ -16,6 +16,8 @@ export type Block =
   /** 테두리 상자 (지문, <보기>, 안내문) */
   | { type: "box"; title?: string; /** 한 줄 = 한 문단. 서식이 있는 줄은 구간 목록 */ lines: (string | Run[])[]; tone?: "plain" | "shaded" }
   | { type: "pageBreak" }
+  /** 이 지점부터 단 수 변경 (제목은 1단, 본문은 2단 등) */
+  | { type: "columns"; count: 1 | 2 }
   | { type: "spacer" };
 
 export type DocModel = { title: string; blocks: Block[] };
