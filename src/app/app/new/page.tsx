@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SAMPLES } from "@/lib/samples";
 import { requireUser } from "@/server/auth/dal";
-import { DEMO_NOTICE, demoReasonFor } from "@/server/ai/access";
+import { DEMO_NOTICE, demoReasonFor, engineFor } from "@/server/ai/access";
 import { HttpError } from "@/server/http";
 import { getMaterial } from "@/server/services/materials";
 
@@ -29,7 +29,7 @@ async function WizardLoader({ searchParams }: { searchParams: PageProps<"/app/ne
   return (
     <GenerateWizard
       balance={user.points}
-      engine={demoReason ? "demo" : "claude"}
+      engine={engineFor(user)}
       demoNotice={demoReason ? DEMO_NOTICE[demoReason] : undefined}
       samples={samples}
       initial={initial}

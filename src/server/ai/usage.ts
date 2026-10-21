@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * AI 사용량 기록 — Claude API 호출마다 토큰 사용량과 추정 원가를 모읍니다.
+ * AI 사용량 기록 — Claude·Gemini API 호출마다 토큰 사용량과 추정 원가를 모읍니다.
  * 실패한 호출(거절·길이 초과)도 요금이 청구되므로 함께 기록합니다.
  */
 
@@ -16,6 +16,16 @@ export const MODEL_PRICES: Record<string, { input: number; output: number; cache
   "claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.2 },
   "claude-sonnet-5": { input: 2, output: 10, cacheRead: 0.2 },
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01 },
+  // Gemini API 유료 등급 정가 (2026-10 기준). 무료 등급으로 쓰는 동안 실제 청구는 0원이고, 이 값은 유료 전환 시 예상치입니다.
+  "gemini-3.8-flash": { input: 0.75, output: 3.75, cacheRead: 0.075 },
+  "gemini-3.6-flash": { input: 0.75, output: 3.75, cacheRead: 0.075 },
+  "gemini-3.5-flash-lite": { input: 0.3, output: 2.5, cacheRead: 0.03 },
+  "gemini-3.1-flash-lite": { input: 0.25, output: 1.5, cacheRead: 0.025 },
+  "gemini-3-flash-preview": { input: 0.5, output: 3, cacheRead: 0.05 },
+  "gemini-3.1-pro-preview": { input: 2, output: 12, cacheRead: 0.2 },
+  "gemini-2.5-pro": { input: 1.25, output: 10, cacheRead: 0.125 },
+  "gemini-2.5-flash": { input: 0.3, output: 2.5, cacheRead: 0.03 },
+  "gemini-2.5-flash-lite": { input: 0.1, output: 0.4, cacheRead: 0.01 },
 };
 /** 5분 캐시 쓰기는 입력 단가의 1.25배 */
 const CACHE_WRITE_MULTIPLIER = 1.25;
@@ -69,6 +79,18 @@ export function usageFromMessage(feature: UsageFeature, message: { model: string
     status,
   };
   return { ...entry, costUsd: estimateCostUsd(entry.model, entry) };
+}
+
+/** 토큰 수를 직접 아는 경우(Gemini 등)의 사용량 기록 항목 */
+export function usageEntry(
+  feature: UsageFeature,
+  model: string,
+  tokens: Pick<UsageEntry, "inputTokens" | "outputTokens" | "cacheReadTokens">,
+  durationMs: number,
+  status: UsageStatus,
+): UsageEntry {
+  const entry = { feature, model, ...tokens, cacheWriteTokens: 0, durationMs, status };
+  return { ...entry, costUsd: estimateCostUsd(model, entry) };
 }
 
 /** 한 번의 작업(자료 생성 등)에서 일어난 AI 호출을 모으는 그릇 */

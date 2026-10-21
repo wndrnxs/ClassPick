@@ -55,6 +55,12 @@ function EngineBadge({ engine, isSample }: { engine: MaterialDTO["engine"]; isSa
         <Bot /> Claude AI 생성
       </Badge>
     );
+  if (engine === "gemini")
+    return (
+      <Badge variant="soft">
+        <Bot /> Gemini AI 생성
+      </Badge>
+    );
   if (engine === "demo")
     return (
       <Badge variant="amber">

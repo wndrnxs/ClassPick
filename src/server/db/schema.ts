@@ -65,7 +65,7 @@ export const materials = sqliteTable(
     types: text("types", { mode: "json" }).$type<string[]>().notNull().default([]),
     /** 생성 결과 (JSON) — kind에 따라 PassageContent / ExamReport / ExamSet / OcrResult */
     content: text("content", { mode: "json" }).$type<Record<string, unknown>>().notNull().default({}),
-    engine: text("engine", { enum: ["claude", "demo", "none"] }).notNull().default("none"),
+    engine: text("engine", { enum: ["claude", "gemini", "demo", "none"] }).notNull().default("none"),
     pointsSpent: integer("points_spent").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" })

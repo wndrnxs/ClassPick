@@ -11,7 +11,7 @@ import { MATERIAL_TYPE_META, TOKEN_PACKS } from "@/lib/catalog";
 import type { MaterialType } from "@/lib/schemas";
 import { cn, formatDateTime, formatNumber } from "@/lib/utils";
 import { requireAdmin } from "@/server/auth/dal";
-import { aiEngine, env } from "@/server/env";
+import { aiEngine, aiModelName, env } from "@/server/env";
 import { getUsageReport } from "@/server/services/ai-usage";
 
 export const metadata: Metadata = { title: "AI 사용량 · 원가" };
@@ -47,8 +47,16 @@ async function Report({ searchParams }: { searchParams: PageProps<"/app/usage">[
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
-        현재 설정: 엔진 <b className="text-slate-700">{engine === "claude" ? "Claude" : "데모 (API 키 없음 · 기록 안 됨)"}</b> · 모델{" "}
-        <b className="text-slate-700">{env.aiModel}</b> · effort <b className="text-slate-700">{env.aiEffort}</b> · 실제 AI 사용{" "}
+        현재 설정: 엔진{" "}
+        <b className="text-slate-700">{engine === "claude" ? "Claude" : engine === "gemini" ? "Gemini" : "데모 (API 키 없음 · 기록 안 됨)"}</b> · 모델{" "}
+        <b className="text-slate-700">{aiModelName()}</b>
+        {engine === "claude" && (
+          <>
+            {" "}
+            · effort <b className="text-slate-700">{env.aiEffort}</b>
+          </>
+        )}{" "}
+        · 실제 AI 사용{" "}
         <b className="text-slate-700">{env.aiUsers === "admins" ? "운영자·마스터 계정만" : "가입 계정 전체"}</b> (체험 계정은 항상 데모)
       </p>
       <nav className="flex gap-1 rounded-xl bg-muted/60 p-1 sm:w-fit" aria-label="기간">
@@ -74,6 +82,12 @@ async function Report({ searchParams }: { searchParams: PageProps<"/app/usage">[
         <StatTile label="출력 토큰" value={formatNumber(total.outputTokens)} hint="AI 사고(thinking) 포함" />
         <StatTile label="작업당 평균 원가" value={total.jobCount ? won(krw(total.costUsd / total.jobCount)) : "-"} hint={`작업 ${formatNumber(total.jobCount)}건`} />
       </div>
+
+      {engine === "gemini" && env.geminiFreeTier && (
+        <p className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <Info className="size-4 shrink-0" /> Gemini 무료 등급으로 쓰는 동안 실제 청구 금액은 0원이에요. 아래 원가는 유료 등급으로 바꿨을 때의 예상치예요.
+        </p>
+      )}
 
       {total.unknownCost > 0 && (
         <p className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-soft px-4 py-3 text-sm text-amber-900">
@@ -197,7 +211,7 @@ export default function UsagePage({ searchParams }: PageProps<"/app/usage">) {
       <PageHeader
         eyebrow="Operator"
         title="AI 사용량 · 원가"
-        description="Claude API 호출마다 토큰 사용량과 추정 원가를 기록해요. 실패해서 토큰을 환불한 작업도 API 요금은 나가므로 함께 보여 줘요."
+        description="AI API 호출마다 토큰 사용량과 추정 원가를 기록해요. 실패해서 토큰을 환불한 작업도 API 요금은 나가므로 함께 보여 줘요."
       />
       <Suspense
         fallback={

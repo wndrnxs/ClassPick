@@ -8,7 +8,7 @@ type MaterialBase = {
   sourceNote: string;
   sourceText: string;
   types: MaterialType[];
-  engine: "claude" | "demo" | "none";
+  engine: "claude" | "gemini" | "demo" | "none";
   pointsSpent: number;
   createdAt: string;
 };

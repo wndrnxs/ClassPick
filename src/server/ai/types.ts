@@ -34,11 +34,11 @@ export type PassageContext = {
 };
 
 /**
- * AI 엔진 추상화: Claude(실서비스) / Demo(키 없이 동작하는 로컬 엔진)
+ * AI 엔진 추상화: Claude(실서비스) / Gemini(Google AI Studio 키, 무료 테스트용) / Demo(키 없이 동작하는 로컬 엔진)
  * log를 넘기면 실제 API 호출의 토큰 사용량이 기록됩니다(데모 엔진은 기록 없음).
  */
 export interface AiEngine {
-  readonly name: "claude" | "demo";
+  readonly name: "claude" | "gemini" | "demo";
   generateSection<T extends MaterialType>(type: T, ctx: PassageContext, log?: UsageLog): Promise<SectionOutput[T]>;
   analyzeExam(input: AnalyzeExamInput, log?: UsageLog): Promise<ExamReport>;
   ocr(file: UploadedFile, log?: UsageLog): Promise<string>;

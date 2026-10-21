@@ -160,7 +160,7 @@ export function GenerateWizard({
   initial,
 }: {
   balance: number;
-  engine: "claude" | "demo";
+  engine: "claude" | "gemini" | "demo";
   /** 데모 엔진인 이유 안내 (체험 계정 · 키 없음 · 비공개 테스트) */
   demoNotice?: string;
   samples: WizardSample[];

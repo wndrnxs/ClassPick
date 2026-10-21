@@ -70,7 +70,8 @@ npm run dev          # http://localhost:3000
 
 - 환경 변수 없이 바로 실행됩니다. DB(SQLite)는 첫 요청 시 `./data/classpick.db`에 자동 생성·마이그레이션됩니다.
 - 로그인 화면의 **“가입 없이 체험 계정으로 둘러보기”** 를 누르면 샘플 자료 3종이 담긴 계정으로 바로 시작합니다.
-- `ANTHROPIC_API_KEY`가 없으면 **데모 엔진**으로 동작합니다. 예시 지문(진달래꽃·운수 좋은 날·언어의 본질)은 완성된 결과를, 그 밖의 지문은 형태 분석 기반의 틀을 생성하며 화면에 “데모 엔진 생성”으로 표시됩니다.
+- **Gemini(무료 테스트)**: `ANTHROPIC_API_KEY` 없이 Google AI Studio에서 받은 `GEMINI_API_KEY`만 넣으면 Gemini(`gemini-3.8-flash`, 무료 등급)로 실제 분석·출제·OCR을 합니다 (`src/server/ai/gemini-engine.ts`). 무료 등급의 분당 요청 제한에 맞춰 동시 요청을 2개로 묶고, 제한에 걸리면 안내된 시간만큼 기다렸다 다시 시도합니다. 무료 등급에서는 보낸 지문이 Google 제품 개선에 쓰일 수 있으니 실제 서비스 전에는 유료 등급이나 Claude로 바꾸세요.
+- AI 키가 하나도 없으면 **데모 엔진**으로 동작합니다. 예시 지문(진달래꽃·운수 좋은 날·언어의 본질)은 완성된 결과를, 그 밖의 지문은 형태 분석 기반의 틀을 생성하며 화면에 “데모 엔진 생성”으로 표시됩니다.
 
 ```bash
 npm run build && npm start   # 프로덕션
@@ -84,7 +85,10 @@ npm run typecheck            # 라우트 타입 생성 + tsc
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `ANTHROPIC_API_KEY` | – | 설정 시 Claude로 실제 분석·출제·OCR 수행 |
-| `CLASSPICK_AI_MODE` | `auto` | `auto` / `claude` / `demo` |
+| `GEMINI_API_KEY` | – | Google AI Studio 키. Claude 키가 없으면 Gemini로 실제 생성 (무료 등급 가능) |
+| `CLASSPICK_GEMINI_MODEL` | `gemini-3.8-flash` | 사용할 Gemini 모델 |
+| `CLASSPICK_GEMINI_CONCURRENCY` | `2` | 동시에 보내는 Gemini 요청 수 |
+| `CLASSPICK_AI_MODE` | `auto` | `auto`(Claude 키 → Claude, 없으면 Gemini 키 → Gemini) / `claude` / `gemini` / `demo` |
 | `CLASSPICK_AI_MODEL` | `claude-opus-5-5` | 사용할 Claude 모델 |
 | `CLASSPICK_AI_EFFORT` | `high` | `low`~`max` (출제 품질과 비용의 균형) |
 | `CLASSPICK_AI_USERS` | `members` | 실제 AI를 쓸 수 있는 계정: `members`(가입 계정 전체) / `admins`(운영자·마스터만). 체험 계정은 항상 데모 엔진 |

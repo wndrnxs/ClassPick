@@ -13,13 +13,15 @@ import type {
 import type { UploadedFile } from "@/server/ingest/extract";
 import { claudeEngine } from "./claude-engine";
 import { demoEngine } from "./demo-engine";
+import { geminiEngine } from "./gemini-engine";
 import type { AiEngine, PassageContext, SectionOutput } from "./types";
 import type { UsageLog } from "./usage";
 
 /** engine: 계정별로 정한 엔진 (server/ai/access.ts의 engineFor) */
 export type AiRunOptions = { engine: AiEngine["name"]; log?: UsageLog };
 
-const getEngine = (name: AiEngine["name"]): AiEngine => (name === "claude" ? claudeEngine : demoEngine);
+const ENGINES: Record<AiEngine["name"], AiEngine> = { claude: claudeEngine, gemini: geminiEngine, demo: demoEngine };
+const getEngine = (name: AiEngine["name"]): AiEngine => ENGINES[name];
 
 /* ------------------------------------------------------------------ */
 /* 후처리: AI 출력의 형식을 서비스 규칙에 맞게 보정합니다.                    */

@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { connection } from "next/server";
 
 import { getDb } from "@/server/db/client";
-import { aiEngine, env } from "@/server/env";
+import { aiEngine, aiModelName, env } from "@/server/env";
 
 export async function GET() {
   await connection();
@@ -19,7 +19,7 @@ export async function GET() {
     // 어떤 DB에 연결됐는지 (주소·토큰은 노출하지 않음): remote = DATABASE_URL(Turso 등), local = 서버 파일
     databaseKind: env.databaseUrl ? "remote" : "local",
     aiEngine: aiEngine(),
-    model: env.aiModel,
+    model: aiModelName(),
     payments: env.paymentProvider,
   });
 }

@@ -11,11 +11,18 @@ export const env = {
   /** 호스팅 libSQL(Turso 등) 주소. 설정하면 로컬 파일 대신 이 DB를 씁니다 (재배포해도 데이터 유지). */
   databaseUrl: cleanSecret(process.env.DATABASE_URL),
   databaseAuthToken: cleanSecret(process.env.DATABASE_AUTH_TOKEN),
-  /** auto: ANTHROPIC_API_KEY가 있으면 Claude, 없으면 데모 엔진 */
-  aiMode: (process.env.CLASSPICK_AI_MODE ?? "auto") as "auto" | "claude" | "demo",
+  /** auto: ANTHROPIC_API_KEY가 있으면 Claude, 없고 GEMINI_API_KEY가 있으면 Gemini, 둘 다 없으면 데모 엔진 */
+  aiMode: (process.env.CLASSPICK_AI_MODE ?? "auto") as "auto" | "claude" | "gemini" | "demo",
   aiModel: process.env.CLASSPICK_AI_MODEL ?? "claude-opus-5-5",
   aiEffort: (process.env.CLASSPICK_AI_EFFORT ?? "high") as "low" | "medium" | "high" | "xhigh" | "max",
   hasAnthropicCredentials: Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
+  /** Google AI Studio에서 발급한 Gemini API 키 (무료 등급 사용 가능) */
+  geminiApiKey: cleanSecret(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+  geminiModel: cleanSecret(process.env.CLASSPICK_GEMINI_MODEL) || "gemini-3.8-flash",
+  /** 동시에 보내는 Gemini 요청 수 (무료 등급은 분당 요청 수 제한이 있어 작게) */
+  geminiConcurrency: Math.max(1, Number(process.env.CLASSPICK_GEMINI_CONCURRENCY ?? 2) || 2),
+  /** 무료 등급 사용 중인지 (사용량 화면의 원가 안내용, 기본: 예) */
+  geminiFreeTier: process.env.CLASSPICK_GEMINI_FREE_TIER !== "false",
   paymentProvider: (process.env.PAYMENT_PROVIDER ?? "mock") as "mock" | "toss",
   tossSecretKey: process.env.TOSS_SECRET_KEY ?? "",
   isProduction: process.env.NODE_ENV === "production",
@@ -46,9 +53,17 @@ export const isOperatorEmail = (email: string) => {
   return env.adminEmails.includes(e) || (masterEnabled() && e === env.masterEmail);
 };
 
+export type AiEngineName = "claude" | "gemini" | "demo";
+
 /** 서버 전체 설정 기준 엔진 (계정별 제한은 server/ai/access.ts) */
-export function aiEngine(): "claude" | "demo" {
-  if (env.aiMode === "demo") return "demo";
-  if (env.aiMode === "claude") return "claude";
-  return env.hasAnthropicCredentials ? "claude" : "demo";
+export function aiEngine(): AiEngineName {
+  if (env.aiMode === "demo" || env.aiMode === "claude" || env.aiMode === "gemini") return env.aiMode;
+  if (env.hasAnthropicCredentials) return "claude";
+  return env.geminiApiKey ? "gemini" : "demo";
 }
+
+/** 지금 쓰는 실제 AI 모델 이름 (화면·상태 확인용) */
+export const aiModelName = () => {
+  const engine = aiEngine();
+  return engine === "gemini" ? env.geminiModel : engine === "claude" ? env.aiModel : "demo";
+};
